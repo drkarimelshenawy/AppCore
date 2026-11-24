@@ -6,6 +6,15 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const owner = "bnPCGBPKIcT0zbMlOcd6Z6ttGr22";
 let generation = 0;
+let ready = false;
+const allowedModules = new Set(['releases','notifications','analytics','crashes','remote','alerts','web','content','database']);
+window.appcoreSaveModules = async (id, modules) => {
+ if (!ready || auth.currentUser?.uid !== owner) throw new Error('Unauthorized');
+ if (!['exmore','3al-tabloh'].includes(id) || !Array.isArray(modules) || modules.some(m=>!allowedModules.has(m))) throw new Error('Invalid configuration');
+ const ticket = generation;
+ await setDoc(doc(db,'apps',id),{modules:[...new Set(modules)],updatedAt:serverTimestamp()},{merge:true});
+ if(ticket===generation) await connect(auth.currentUser,ticket);
+};
 async function connect(user, ticket) {
  if (!user || user.uid !== owner) return;
  const ref = collection(db,"apps");
@@ -19,6 +28,7 @@ async function connect(user, ticket) {
   snapshot = await getDocs(ref);
  }
  if(ticket !== generation) return;
+ ready = true;
  document.querySelector("#notice").textContent = "متصل بقاعدة البيانات — نشر التحديثات وإرسال الإشعارات غير مفعّلين بعد.";
  status.textContent = "تم التحقق من صلاحيات الإدارة والاتصال بقاعدة البيانات.";
  window.dispatchEvent(new CustomEvent("appcore-data",{detail:snapshot.docs.map(d=>({id:d.id,...d.data()}))}));
@@ -27,6 +37,7 @@ async function connect(user, ticket) {
 const button = document.querySelector("#login"), status = document.querySelector("#auth-status");
 const report = (stage, e) => { console.error("AppCore auth", stage, e); status.textContent = "تعذر تسجيل الدخول (" + stage + "): " + (e.code || e.message || "unknown"); };
 onAuthStateChanged(auth, user => {
+ ready = false;
  const ticket = ++generation;
  window.dispatchEvent(new CustomEvent("appcore-data",{detail:[]}));
  document.querySelector("#notice").textContent = "غير متصل بقاعدة البيانات — الإرسال والنشر غير مفعّلين.";
