@@ -30,4 +30,5 @@ jobs:
           distribution: temurin
           java-version: '21'
       - run: npm install --no-save --package-lock=false firebase@11.10.0 @firebase/rules-unit-testing@4 firebase-tools@14
-      - run: npx firebase emulators:exec --only firestore --project demo-appcore "node --test tests/firestore.test.cjs"
+      - run: npm install --prefix functions --no-package-lock
+      - run: npx firebase emulators:exec --only firestore,functions --project demo-appcore "node --test tests/firestore.test.cjs tests/integration.test.cjs"

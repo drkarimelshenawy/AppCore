@@ -22,7 +22,7 @@ window.appcoreSaveModules = async (id, modules) => {
  if (!ready || auth.currentUser?.uid !== owner) throw new Error('Unauthorized');
  if (!/^[a-z0-9][a-z0-9-]{1,49}$/.test(id) || !Array.isArray(modules) || modules.some(m=>!allowedModules.has(m))) throw new Error('Invalid configuration');
  const ticket = generation;
- await setDoc(doc(db,'apps',id),{modules:[...new Set(modules)],updatedAt:serverTimestamp()},{merge:true});
+ await runTransaction(db,async tx=>{const ref=doc(db,'apps',id);if(!(await tx.get(ref)).exists())throw new Error('App missing');tx.update(ref,{modules:[...new Set(modules)],updatedAt:serverTimestamp()});});
  if(ticket===generation) await connect(auth.currentUser,ticket);
 };
 async function connect(user, ticket) {
