@@ -112,3 +112,30 @@ exports.getAuditLog=onCall(async request=>{
  const snap=await db.collection("auditLogs").where("appId","==",appId).orderBy("createdAt","desc").limit(100).get();
  return {entries:snap.docs.map(s=>{const d=s.data();return {id:s.id,action:d.action,status:d.status??null,revision:d.revision??null,createdAt:d.createdAt?.toMillis?.()??null};})};
 });
+
+async function requireAlerts(request){
+ if(request.auth?.uid!==owner)throw new HttpsError("permission-denied","Owner required");
+ const {appId}=request.data||{};
+ if(typeof appId!=="string"||!/^[a-z0-9][a-z0-9-]{1,49}$/.test(appId))throw new HttpsError("invalid-argument","Invalid app");
+ const app=await db.collection("apps").doc(appId).get();
+ if(!app.exists||!(app.data().modules??(["exmore","3al-tabloh"].includes(appId)?["alerts"]:[])).includes("alerts"))throw new HttpsError("failed-precondition","Alerts disabled");
+ return appId;
+}
+exports.getAdminAlerts=onCall(async request=>{
+ const appId=await requireAlerts(request);
+ const snap=await db.collection("adminAlerts").doc(appId).collection("items").orderBy("createdAt","desc").limit(100).get();
+ return {appId,alerts:snap.docs.map(s=>{const d=s.data();return {id:s.id,title:String(d.title??"").slice(0,200),severity:["info","warning","critical"].includes(d.severity)?d.severity:"unknown",acknowledged:d.acknowledged===true,createdAt:d.createdAt?.toMillis?.()??null};})};
+});
+exports.acknowledgeAdminAlert=onCall(async request=>{
+ const appId=await requireAlerts(request),{alertId}=request.data;
+ if(typeof alertId!=="string"||!/^[A-Za-z0-9_-]{1,100}$/.test(alertId))throw new HttpsError("invalid-argument","Invalid alert");
+ const ref=db.collection("adminAlerts").doc(appId).collection("items").doc(alertId);
+ return db.runTransaction(async tx=>{
+ const s=await tx.get(ref);if(!s.exists)throw new HttpsError("not-found","Alert missing");
+ if(s.data().acknowledged===true)return {acknowledged:true};
+ const at=FieldValue.serverTimestamp();
+ tx.update(ref,{acknowledged:true,acknowledgedAt:at});
+ tx.set(db.collection("auditLogs").doc(),{appId,action:"alert.acknowledge",alertId,actor:request.auth.uid,createdAt:at});
+ return {acknowledged:true};
+ });
+});
