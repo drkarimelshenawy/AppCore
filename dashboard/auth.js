@@ -1,10 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
-const response = await fetch("/__/firebase/init.json", {cache:"no-store"});
-if (!response.ok) throw new Error("Firebase Hosting configuration unavailable");
-const config = await response.json();
-if (config.projectId !== "appcore-2026" || !config.apiKey) throw new Error("Invalid Firebase project configuration");
-const app = initializeApp({...config, authDomain:location.hostname});
+const app = initializeApp({apiKey:"AIzaSyBWiaz4dP6aaJFlFxD7mj3J3CPaFaYJyM0",authDomain:"appcore-2026.web.app",projectId:"appcore-2026",storageBucket:"appcore-2026.firebasestorage.app",messagingSenderId:"316863421809",appId:"1:316863421809:web:a57802628c500a9a4f2ad0"});
 const auth = getAuth(app);
 const button = document.querySelector("#login"), status = document.querySelector("#auth-status");
 const report = e => { status.textContent = "تعذر تسجيل الدخول: " + (e.code || "unknown"); };
