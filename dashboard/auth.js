@@ -55,10 +55,12 @@ onAuthStateChanged(auth, user => {
  button.onclick = async () => { try { if(user) await signOut(auth); else await signInWithPopup(auth,new GoogleAuthProvider()); } catch(e){report("Google", e); } };
 }, e => report("initialization", e));
 
-window.appcoreDrafts = async (id,kind,data) => {
+window.appcoreDrafts = async (id,kind,data,draftId) => {
  if(!ready || auth.currentUser?.uid!==owner) throw new Error("Unauthorized");
  const types={releases:"releaseDrafts",notifications:"notificationDrafts"};
  if(!Object.hasOwn(types,kind)||!/^[a-z0-9][a-z0-9-]{1,49}$/.test(id)) throw new Error("Invalid request");
+ if(draftId!==undefined && !/^[A-Za-z0-9]{20}$/.test(draftId)) throw new Error("Invalid draft ID");
+ if(data===null){await runTransaction(db,async tx=>{const ref=doc(db,types[kind],draftId);const old=await tx.get(ref);if(!old.exists()||old.data().appId!==id||old.data().status!=="draft")throw new Error("Draft unavailable");tx.delete(ref);});return;}
  const snap=await getDocs(collection(db,types[kind]));
  if(data===undefined) return snap.docs.filter(d=>d.data().appId===id).map(d=>({id:d.id,...d.data()}));
  const a=await getDocs(collection(db,"apps"));
@@ -76,5 +78,5 @@ window.appcoreDrafts = async (id,kind,data) => {
  payload={title,body,audience:"test"};
  }
  if(!ready||auth.currentUser?.uid!==owner) throw new Error("Unauthorized");
- await setDoc(doc(collection(db,types[kind])),{...payload,appId:id,status:"draft",createdAt:serverTimestamp()});
+ if(draftId){await runTransaction(db,async tx=>{const ref=doc(db,types[kind],draftId);const old=await tx.get(ref);if(!old.exists()||old.data().appId!==id||old.data().status!=="draft")throw new Error("Draft unavailable");tx.update(ref,{...payload,updatedAt:serverTimestamp()});});}else await setDoc(doc(collection(db,types[kind])),{...payload,appId:id,status:"draft",createdAt:serverTimestamp()});
 };
