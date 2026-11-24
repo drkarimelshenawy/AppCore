@@ -139,3 +139,16 @@ exports.acknowledgeAdminAlert=onCall(async request=>{
  return {acknowledged:true};
  });
 });
+
+exports.checkWebsite=onCall(async request=>{
+ if(request.auth?.uid!==owner)throw new HttpsError("permission-denied","Owner required");
+ const appId=request.data?.appId;
+ if(appId!=="3al-tabloh")throw new HttpsError("invalid-argument","Website not configured");
+ const app=await db.collection("apps").doc(appId).get();
+ if(!app.exists||!(app.data().modules??["web"]).includes("web"))throw new HttpsError("failed-precondition","Monitoring disabled");
+ const started=Date.now();let status=null,healthy=false;
+ try{const response=await fetch("https://al-tabloh.web.app/",{method:"GET",redirect:"manual",signal:AbortSignal.timeout(10000)});status=response.status;healthy=response.ok;await response.body?.cancel();}catch{}
+ const result={appId,status,healthy,latencyMs:Date.now()-started};
+ await db.collection("websiteStatus").doc(appId).set({...result,checkedAt:FieldValue.serverTimestamp()});
+ return result;
+});
