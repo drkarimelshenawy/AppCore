@@ -3,13 +3,13 @@ on:
   push:
     branches: [feat/appcore-command-center]
     paths:
-      - 'server/google-*.js'
+      - 'server/**'
       - '.github/workflows/appcore-google-tests.yml'
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
-  unit:
+  verify:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -17,4 +17,28 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --test server/google-credentials.test.js server/google-rest.test.js
+      - name: Syntax and unit tests
+        run: |
+          node --check server/index.js
+          node --check server/google-credentials.js
+          node --check server/google-rest.js
+          node --test server/google-*.test.js
+      - name: Combined credential and REST smoke test (mock only)
+        working-directory: server
+        run: |
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import {createGoogleCredentialProvider} from './google-credentials.js';
+          import {createGoogleRest} from './google-rest.js';
+          let acquisitions=0;
+          const credentials=createGoogleCredentialProvider({acquire:async()=>({accessToken:'mock-only',expiresAt:Date.now()+3600000})});
+          const api=createGoogleRest({projectId:'appcore-2026',credentials,fetchImpl:async(url,opts)=>{
+            assert.equal(opts.headers.Authorization,'Bearer mock-only');
+            if(opts.method==='POST') assert.equal(JSON.parse(opts.body).validate_only,true);
+            acquisitions++;
+            return Response.json({ok:true});
+          }});
+          await api.getDocument('apps','exmore');
+          await api.validateTestNotification('exmore','Test','Test body');
+          assert.equal(acquisitions,2);
+          JS
