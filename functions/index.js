@@ -80,3 +80,18 @@ exports.getRemoteConfig=onCall(async request=>{
  const snap=await db.collection("remoteConfigs").doc(appId).get();
  return snap.exists?{revision:snap.data().revision,flags:snap.data().flags}:{revision:0,flags:{}};
 });
+
+exports.getAnalyticsSummary=onCall(async request=>{
+ if(request.auth?.uid!==owner)throw new HttpsError("permission-denied","Owner required");
+ const {appId,days=30}=request.data||{};
+ if(typeof appId!=="string"||!/^[a-z0-9][a-z0-9-]{1,49}$/.test(appId)||!Number.isInteger(days)||days<1||days>90)throw new HttpsError("invalid-argument","Invalid analytics query");
+ const app=await db.collection("apps").doc(appId).get();
+ if(!app.exists||!(app.data().modules??(["exmore","3al-tabloh"].includes(appId)?["analytics"]:[])).includes("analytics"))throw new HttpsError("failed-precondition","Analytics disabled");
+ const end=new Date();end.setUTCHours(0,0,0,0);
+ const start=new Date(end.getTime()-(days-1)*86400000);
+ const dateKey=d=>d.toISOString().slice(0,10);
+ const snap=await db.collection("analyticsDaily").doc(appId).collection("days").where("__name__",">=",dateKey(start)).where("__name__","<=",dateKey(end)).orderBy("__name__").get();
+ const count=v=>Number.isSafeInteger(v)&&v>=0?v:null;
+ const rows=snap.docs.map(doc=>{const d=doc.data();return {date:doc.id,activeDevices:count(d.activeDevices),sessions:count(d.sessions),crashes:count(d.crashes)};});
+ return {appId,from:dateKey(start),to:dateKey(end),timezone:"UTC",status:rows.length?"partial-or-available":"no-data",daysReported:rows.length,rows};
+});
