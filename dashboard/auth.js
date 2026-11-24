@@ -54,3 +54,27 @@ onAuthStateChanged(auth, user => {
  if(user?.uid === owner) connect(user,ticket).catch(e=>{if(ticket===generation) report("Firestore",e);});
  button.onclick = async () => { try { if(user) await signOut(auth); else await signInWithPopup(auth,new GoogleAuthProvider()); } catch(e){report("Google", e); } };
 }, e => report("initialization", e));
+
+window.appcoreDrafts = async (id,kind,data) => {
+ if(!ready || auth.currentUser?.uid!==owner) throw new Error("Unauthorized");
+ const types={releases:"releaseDrafts",notifications:"notificationDrafts"};
+ if(!Object.hasOwn(types,kind)||!/^[a-z0-9][a-z0-9-]{1,49}$/.test(id)) throw new Error("Invalid request");
+ const snap=await getDocs(collection(db,types[kind]));
+ if(data===undefined) return snap.docs.filter(d=>d.data().appId===id).map(d=>({id:d.id,...d.data()}));
+ const a=await getDocs(collection(db,"apps"));
+ const app=a.docs.find(d=>d.id===id);
+ const defaults=["releases","notifications","analytics","crashes","remote","alerts"];
+ if(!app || !(app.data().modules ?? (["exmore","3al-tabloh"].includes(id)?defaults:[])).includes(kind)) throw new Error("Module disabled");
+ let payload;
+ if(kind==="releases"){
+ const version=String(data.version||"").trim(),code=Number(data.code),url=new URL(data.url);
+ if(!version||version.length>50||!Number.isSafeInteger(code)||code<1||code>2100000000||url.protocol!=="https:"||url.username||url.password) throw new Error("Invalid release");
+ payload={version,code,url:url.href,notes:String(data.notes||"").slice(0,4000),mandatory:data.mandatory===true};
+ }else{
+ const title=String(data.title||"").trim(),body=String(data.body||"").trim();
+ if(!title||title.length>100||!body||body.length>1000) throw new Error("Invalid notification");
+ payload={title,body,audience:"test"};
+ }
+ if(!ready||auth.currentUser?.uid!==owner) throw new Error("Unauthorized");
+ await setDoc(doc(collection(db,types[kind])),{...payload,appId:id,status:"draft",createdAt:serverTimestamp()});
+};
