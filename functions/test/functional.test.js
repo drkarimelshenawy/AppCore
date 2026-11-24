@@ -78,3 +78,6 @@ test("content module disabled blocks editing",async()=>{
  const s=setup({"apps/3al-tabloh":{modules:[]}});
  await assert.rejects(s.call("saveManagedDraft",{appId:"3al-tabloh",kind:"content"}),{code:"failed-precondition"});
 });
+
+test("disabled remote module blocks reading",async()=>{const s=setup({"apps/exmore":{modules:[]}});await assert.rejects(s.call("getRemoteConfig",{appId:"exmore"}),{code:"failed-precondition"});});
+test("remote read returns initial revision",async()=>{const s=setup({"apps/exmore":{}});const result=await s.call("getRemoteConfig",{appId:"exmore"});assert.equal(result.revision,0);assert.equal(Object.keys(result.flags).length,0);});

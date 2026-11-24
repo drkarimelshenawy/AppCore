@@ -31,13 +31,13 @@ function draftPanel(a,kind){
 function servicePanel(a,kind){
  const names={analytics:"getAnalyticsSummary",crashes:"getCrashSummary",remote:"getRemoteConfig",alerts:"getAdminAlerts",web:"checkWebsite",content:"listManagedDrafts",database:"listManagedDrafts",audit:"getAuditLog"};
  const panel=card(modules[kind]||"سجل التدقيق","SERVER / "+kind),out=el("pre","لم يتم التحميل","console-output"),load=el("button",kind==="web"?"فحص الموقع":"تحميل البيانات");panel.append(load,out);
- let revision=0;
+ let revision=null;
  const editor=el("textarea");editor.setAttribute("aria-label","JSON");editor.value="{}";
- async function run(name,data){load.disabled=true;try{const result=await window.appcoreCall(name,{appId:a.id,...data});out.textContent=JSON.stringify(result,null,2);return result;}catch(e){out.textContent="ERROR: "+e.message;throw e;}finally{load.disabled=false;}}
+ async function run(name,data){load.disabled=true;try{const result=await window.appcoreCall(name,{...data,appId:a.id});out.textContent=JSON.stringify(result,null,2);return result;}catch(e){out.textContent="ERROR: "+e.message;throw e;}finally{load.disabled=false;}}
  load.onclick=async()=>{try{const result=await run(names[kind],{kind});if(kind==="remote"){revision=result.revision;editor.value=JSON.stringify(result.flags,null,2);}}catch{}};
  if(kind==="remote"||kind==="content"||kind==="database"||kind==="alerts"){
  const save=el("button",kind==="alerts"?"تأكيد الاطلاع":"حفظ");panel.append(editor,save);
- save.onclick=async()=>{if(!confirm("تأكيد التعديل؟"))return;save.disabled=true;try{const data=JSON.parse(editor.value);const result=await run(kind==="remote"?"updateRemoteConfig":kind==="alerts"?"acknowledgeAdminAlert":"saveManagedDraft",kind==="remote"?{flags:data,expectedRevision:revision,confirm:true}:{...data,kind});if(kind==="remote")revision=result.revision;}catch(e){out.textContent="ERROR: "+e.message;}finally{save.disabled=false;}};
+ save.onclick=async()=>{if(kind==="remote"&&revision===null){out.textContent="حمّل الإعدادات الحالية أولاً";return;}if(!confirm("تأكيد التعديل؟"))return;save.disabled=true;try{const data=JSON.parse(editor.value);const result=await run(kind==="remote"?"updateRemoteConfig":kind==="alerts"?"acknowledgeAdminAlert":"saveManagedDraft",kind==="remote"?{flags:data,expectedRevision:revision,confirm:true}:{...data,kind});if(kind==="remote")revision=result.revision;}catch(e){out.textContent="ERROR: "+e.message;}finally{save.disabled=false;}};
  }
  return panel;
 }
