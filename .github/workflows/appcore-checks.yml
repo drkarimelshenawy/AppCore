@@ -18,3 +18,6 @@ jobs:
       - run: node --input-type=module --check < dashboard/auth.js
       - run: node --check functions/index.js
       - run: node -e 'JSON.parse(require("fs").readFileSync("firebase.json")); JSON.parse(require("fs").readFileSync("functions/package.json"))'
+
+      - run: node --test functions/test/*.test.js
+      - run: node -e 'JSON.parse(require("fs").readFileSync("firestore.indexes.json"))'
