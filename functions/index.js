@@ -95,3 +95,20 @@ exports.getAnalyticsSummary=onCall(async request=>{
  const rows=snap.docs.map(doc=>{const d=doc.data();return {date:doc.id,activeDevices:count(d.activeDevices),sessions:count(d.sessions),crashes:count(d.crashes)};});
  return {appId,from:dateKey(start),to:dateKey(end),timezone:"UTC",status:rows.length?"partial-or-available":"no-data",daysReported:rows.length,rows};
 });
+
+exports.getCrashSummary=onCall(async request=>{
+ if(request.auth?.uid!==owner)throw new HttpsError("permission-denied","Owner required");
+ const {appId}=request.data||{};
+ if(typeof appId!=="string"||!/^[a-z0-9][a-z0-9-]{1,49}$/.test(appId))throw new HttpsError("invalid-argument","Invalid app");
+ const app=await db.collection("apps").doc(appId).get();
+ if(!app.exists||!(app.data().modules??(["exmore","3al-tabloh"].includes(appId)?["crashes"]:[])).includes("crashes"))throw new HttpsError("failed-precondition","Crash monitoring disabled");
+ const snap=await db.collection("crashSummaries").doc(appId).collection("issues").orderBy("lastSeen","desc").limit(100).get();
+ return {appId,status:snap.empty?"no-data":"available",issues:snap.docs.map(s=>{const d=s.data();return {id:s.id,version:typeof d.version==="string"?d.version.slice(0,50):null,category:["fatal","nonfatal","anr"].includes(d.category)?d.category:"unknown",count:Number.isSafeInteger(d.count)&&d.count>=0?d.count:null,lastSeen:d.lastSeen?.toMillis?.()??null};})};
+});
+exports.getAuditLog=onCall(async request=>{
+ if(request.auth?.uid!==owner)throw new HttpsError("permission-denied","Owner required");
+ const {appId}=request.data||{};
+ if(typeof appId!=="string"||!/^[a-z0-9][a-z0-9-]{1,49}$/.test(appId))throw new HttpsError("invalid-argument","Invalid app");
+ const snap=await db.collection("auditLogs").where("appId","==",appId).orderBy("createdAt","desc").limit(100).get();
+ return {entries:snap.docs.map(s=>{const d=s.data();return {id:s.id,action:d.action,status:d.status??null,revision:d.revision??null,createdAt:d.createdAt?.toMillis?.()??null};})};
+});
