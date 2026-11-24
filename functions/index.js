@@ -152,3 +152,36 @@ exports.checkWebsite=onCall(async request=>{
  await db.collection("websiteStatus").doc(appId).set({...result,checkedAt:FieldValue.serverTimestamp()});
  return result;
 });
+
+async function managedCollection(request){
+ if(request.auth?.uid!==owner)throw new HttpsError("permission-denied","Owner required");
+ const {appId,kind}=request.data||{};
+ if(appId!=="3al-tabloh"||!["content","database"].includes(kind))throw new HttpsError("invalid-argument","Unsupported service");
+ const app=await db.collection("apps").doc(appId).get();
+ if(!app.exists||!(app.data().modules??["content","database"]).includes(kind))throw new HttpsError("failed-precondition","Service disabled");
+ return db.collection("managedDrafts").doc(appId).collection(kind);
+}
+exports.listManagedDrafts=onCall(async request=>{
+ const ref=await managedCollection(request);
+ const snap=await ref.orderBy("updatedAt","desc").limit(100).get();
+ return {items:snap.docs.map(s=>({id:s.id,...s.data(),updatedAt:s.data().updatedAt?.toMillis?.()??null}))};
+});
+exports.saveManagedDraft=onCall(async request=>{
+ const collection=await managedCollection(request);
+ const {appId,kind,id,title,body,expectedRevision}=request.data;
+ if(typeof id!=="string"||!/^[a-z0-9][a-z0-9_-]{0,79}$/.test(id)||typeof title!=="string"||!title.trim()||title.length>200||typeof body!=="string"||body.length>30000||!Number.isSafeInteger(expectedRevision)||expectedRevision<0)throw new HttpsError("invalid-argument","Invalid draft");
+ let catalog=null;
+ if(kind==="database"){
+ try{catalog=JSON.parse(body);}catch{throw new HttpsError("invalid-argument","Invalid catalog JSON");}
+ if(!catalog||typeof catalog!=="object"||Array.isArray(catalog)||!["vehicle","maintenance"].includes(catalog.type)||typeof catalog.source!=="string"||!catalog.source.trim()||!["verified","estimated","unverified"].includes(catalog.verification))throw new HttpsError("invalid-argument","Catalog type, source and verification required");
+ }
+ const ref=collection.doc(id);
+ return db.runTransaction(async tx=>{
+ const old=await tx.get(ref);
+ if((old.exists?old.data().revision:0)!==expectedRevision)throw new HttpsError("aborted","Reload current revision");
+ const revision=expectedRevision+1,updatedAt=FieldValue.serverTimestamp();
+ tx.set(ref,{title:title.trim(),body,revision,status:"draft",updatedAt});
+ tx.set(db.collection("auditLogs").doc(),{appId,action:kind+".draft.save",recordId:id,revision,actor:request.auth.uid,createdAt:updatedAt});
+ return {revision,status:"draft"};
+ });
+});
