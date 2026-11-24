@@ -2,6 +2,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/fireba
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
 const app = initializeApp({apiKey:"AIzaSyBWiaz4dP6aaJFlFxD7mj3J3CPaFaYJyM0",authDomain:"appcore-2026.web.app",projectId:"appcore-2026",storageBucket:"appcore-2026.firebasestorage.app",messagingSenderId:"316863421809",appId:"1:316863421809:web:a57802628c500a9a4f2ad0"});
 import { getFirestore, collection, getDocs, doc, setDoc, serverTimestamp, runTransaction } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+import {getFunctions,httpsCallable} from "https://www.gstatic.com/firebasejs/11.10.0/firebase-functions.js";
+const functions=getFunctions(app);
+window.appcoreCall=async(name,data)=>{if(!ready||auth.currentUser?.uid!==owner)throw new Error("Unauthorized");return (await httpsCallable(functions,name)(data)).data;};
 const auth = getAuth(app);
 const db = getFirestore(app);
 const owner = "bnPCGBPKIcT0zbMlOcd6Z6ttGr22";
@@ -38,7 +41,7 @@ async function connect(user, ticket) {
  ready = true;
  document.querySelector("#notice").textContent = "متصل بقاعدة البيانات — نشر التحديثات وإرسال الإشعارات غير مفعّلين بعد.";
  status.textContent = "تم التحقق من صلاحيات الإدارة والاتصال بقاعدة البيانات.";
- window.dispatchEvent(new CustomEvent("appcore-data",{detail:snapshot.docs.map(d=>({id:d.id,...d.data()}))}));
+ window.dispatchEvent(new CustomEvent("appcore-data",{detail:{connected:true,apps:snapshot.docs.map(d=>({...d.data(),id:d.id}))}}));
 }
 
 const button = document.querySelector("#login"), status = document.querySelector("#auth-status");
@@ -46,7 +49,7 @@ const report = (stage, e) => { console.error("AppCore auth", stage, e); status.t
 onAuthStateChanged(auth, user => {
  ready = false;
  const ticket = ++generation;
- window.dispatchEvent(new CustomEvent("appcore-data",{detail:[]}));
+ window.dispatchEvent(new CustomEvent("appcore-data",{detail:{connected:false,apps:[]}}));
  document.querySelector("#notice").textContent = "غير متصل بقاعدة البيانات — الإرسال والنشر غير مفعّلين.";
  button.disabled = false;
  button.textContent = user ? "تسجيل الخروج" : "الدخول بحساب Google";
