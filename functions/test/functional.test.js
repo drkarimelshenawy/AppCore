@@ -6,7 +6,7 @@ const source=fs.readFileSync(require("node:path").join(__dirname,"../index.js"),
 const owner=source.match(/const owner="([^"]+)"/)[1];
 function setup(seed){
  const records=new Map(Object.entries(seed)), endpoints={};
- const ref=key=>({key,get:async()=>snapshot(key)});
+ const ref=key=>({key,get:async()=>snapshot(key),collection:name=>({doc:id=>ref(key+"/"+name+"/"+id)})});
  const snapshot=key=>({exists:records.has(key),data:()=>records.get(key)});
  const db={collection:name=>({doc:(id="audit")=>ref(name+"/"+id)}),runTransaction:async fn=>{
  const writes=[];const result=await fn({get:async r=>snapshot(r.key),set:(r,d)=>writes.push(()=>records.set(r.key,d)),update:(r,d)=>writes.push(()=>records.set(r.key,{...records.get(r.key),...d}))});writes.forEach(f=>f());return result;}};
@@ -53,4 +53,28 @@ test("remote flags enforce revision and boolean values",async()=>{
 test("disabled release module blocks publishing",async()=>{
  const s=setup({"apps/exmore":{modules:[]},["releaseDrafts/"+id]:draft});
  await assert.rejects(s.call("publishRelease",request),{code:"failed-precondition"});
+});
+
+test("catalog rejects missing provenance",async()=>{
+ const s=setup({"apps/3al-tabloh":{}});
+ await assert.rejects(s.call("saveManagedDraft",{appId:"3al-tabloh",kind:"database",id:"car",title:"Car",body:'{"type":"vehicle"}',expectedRevision:0}),{code:"invalid-argument"});
+});
+test("catalog saves provenance and rejects stale edits",async()=>{
+ const s=setup({"apps/3al-tabloh":{}});
+ const data={appId:"3al-tabloh",kind:"database",id:"car",title:"Car",body:JSON.stringify({type:"vehicle",source:"Manufacturer manual",verification:"verified"}),expectedRevision:0};
+ assert.equal((await s.call("saveManagedDraft",data)).revision,1);
+ await assert.rejects(s.call("saveManagedDraft",data),{code:"aborted"});
+});
+test("ExMore cannot access vehicle catalog",async()=>{
+ const s=setup({"apps/exmore":{}});
+ await assert.rejects(s.call("listManagedDrafts",{appId:"exmore",kind:"database"}),{code:"invalid-argument"});
+});
+test("notification without registered test target is blocked",async()=>{
+ const s=setup({"apps/exmore":{},["notificationDrafts/"+id]:{appId,status:"draft",audience:"test",title:"Test",body:"Test"}});
+ await assert.rejects(s.call("sendTestNotification",request),{code:"failed-precondition"});
+ assert.equal(s.records.get("notificationDrafts/"+id).status,"draft");
+});
+test("content module disabled blocks editing",async()=>{
+ const s=setup({"apps/3al-tabloh":{modules:[]}});
+ await assert.rejects(s.call("saveManagedDraft",{appId:"3al-tabloh",kind:"content"}),{code:"failed-precondition"});
 });
