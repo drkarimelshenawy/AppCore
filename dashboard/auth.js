@@ -1,16 +1,23 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
 const app = initializeApp({apiKey:"AIzaSyBWiaz4dP6aaJFlFxD7mj3J3CPaFaYJyM0",authDomain:"appcore-2026.web.app",projectId:"appcore-2026",storageBucket:"appcore-2026.firebasestorage.app",messagingSenderId:"316863421809",appId:"1:316863421809:web:a57802628c500a9a4f2ad0"});
-import { getFirestore, collection, getDocs, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+import { getFirestore, collection, getDocs, doc, setDoc, serverTimestamp, runTransaction } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
 const auth = getAuth(app);
 const db = getFirestore(app);
 const owner = "bnPCGBPKIcT0zbMlOcd6Z6ttGr22";
 let generation = 0;
 let ready = false;
 const allowedModules = new Set(['releases','notifications','analytics','crashes','remote','alerts','web','content','database']);
+window.appcoreCreateApp = async (id,name) => {
+ if (!ready || auth.currentUser?.uid !== owner) throw new Error('Unauthorized');
+ if (!/^[a-z0-9][a-z0-9-]{1,49}$/.test(id) || typeof name !== 'string' || !name.trim() || name.length>100) throw new Error('Invalid app');
+ const ticket=generation;
+ await runTransaction(db,async tx=>{const ref=doc(db,'apps',id);if((await tx.get(ref)).exists()) throw new Error('App already exists');tx.set(ref,{name:name.trim(),connected:false,modules:[],createdAt:serverTimestamp()});});
+ if(ticket===generation) await connect(auth.currentUser,ticket);
+};
 window.appcoreSaveModules = async (id, modules) => {
  if (!ready || auth.currentUser?.uid !== owner) throw new Error('Unauthorized');
- if (!['exmore','3al-tabloh'].includes(id) || !Array.isArray(modules) || modules.some(m=>!allowedModules.has(m))) throw new Error('Invalid configuration');
+ if (!/^[a-z0-9][a-z0-9-]{1,49}$/.test(id) || !Array.isArray(modules) || modules.some(m=>!allowedModules.has(m))) throw new Error('Invalid configuration');
  const ticket = generation;
  await setDoc(doc(db,'apps',id),{modules:[...new Set(modules)],updatedAt:serverTimestamp()},{merge:true});
  if(ticket===generation) await connect(auth.currentUser,ticket);
