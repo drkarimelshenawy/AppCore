@@ -52,3 +52,31 @@ exports.sendTestNotification=onCall(async request=>{
  const batch=db.batch();batch.update(ref,{status:"sent",messageId,sentAt:FieldValue.serverTimestamp()});batch.update(audit,{status:"sent",messageId});await batch.commit();
  return {sent:true,messageId};
 });
+
+exports.updateRemoteConfig=onCall(async request=>{
+ if(request.auth?.uid!==owner)throw new HttpsError("permission-denied","Owner required");
+ const {appId,flags,expectedRevision,confirm}=request.data||{};
+ if(typeof appId!=="string"||!/^[a-z0-9][a-z0-9-]{1,49}$/.test(appId)||confirm!==true||!Number.isSafeInteger(expectedRevision)||expectedRevision<0||!flags||typeof flags!=="object"||Array.isArray(flags))throw new HttpsError("invalid-argument","Invalid configuration");
+ const entries=Object.entries(flags);
+ if(entries.length>50||entries.some(([k,v])=>!/^feature_[a-z][a-z0-9_]{0,48}$/.test(k)||typeof v!=="boolean"))throw new HttpsError("invalid-argument","Only boolean feature flags allowed");
+ return db.runTransaction(async tx=>{
+ const appRef=db.collection("apps").doc(appId),ref=db.collection("remoteConfigs").doc(appId);
+ const [app,current]=await Promise.all([tx.get(appRef),tx.get(ref)]);
+ if(!app.exists||!(app.data().modules??(["exmore","3al-tabloh"].includes(appId)?["remote"]:[])).includes("remote"))throw new HttpsError("failed-precondition","Remote control disabled");
+ const previous=current.exists?current.data():{revision:0,flags:{}};
+ if(previous.revision!==expectedRevision)throw new HttpsError("aborted","Configuration changed; reload first");
+ const revision=expectedRevision+1,updatedAt=FieldValue.serverTimestamp();
+ tx.set(ref,{appId,revision,flags:Object.fromEntries(entries),updatedAt});
+ tx.set(db.collection("auditLogs").doc(),{appId,action:"remote.update",actor:request.auth.uid,revision,previousFlags:previous.flags,flags:Object.fromEntries(entries),createdAt:updatedAt});
+ return {revision};
+ });
+});
+exports.getRemoteConfig=onCall(async request=>{
+ if(request.auth?.uid!==owner)throw new HttpsError("permission-denied","Owner required");
+ const {appId}=request.data||{};
+ if(typeof appId!=="string"||!/^[a-z0-9][a-z0-9-]{1,49}$/.test(appId))throw new HttpsError("invalid-argument","Invalid app");
+ const app=await db.collection("apps").doc(appId).get();
+ if(!app.exists)throw new HttpsError("not-found","App missing");
+ const snap=await db.collection("remoteConfigs").doc(appId).get();
+ return snap.exists?{revision:snap.data().revision,flags:snap.data().flags}:{revision:0,flags:{}};
+});
