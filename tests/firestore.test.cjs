@@ -25,3 +25,12 @@ for(const collection of ["publishedReleases","auditLogs","remoteConfigs","notifi
  await assertFails(setDoc(doc(env.authenticatedContext(owner).firestore(),collection,"sample"),{status:"published"}));
  });
 }
+
+for(const collection of ["releaseDrafts","notificationDrafts"]){
+ test(collection+" published records cannot be rewritten by client",async()=>{
+ const id="protected-"+collection;
+ await env.withSecurityRulesDisabled(async ctx=>{await setDoc(doc(ctx.firestore(),collection,id),{appId:"exmore",status:"published",audience:"test"});});
+ const ref=doc(env.authenticatedContext(owner).firestore(),collection,id);
+ await assertFails(setDoc(ref,{appId:"exmore",status:"draft",audience:"test"}));
+ });
+}
