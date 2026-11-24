@@ -21,3 +21,9 @@ jobs:
 
       - run: node --test functions/test/*.test.js
       - run: node -e 'JSON.parse(require("fs").readFileSync("firestore.indexes.json"))'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: npm install --no-save --package-lock=false firebase@11.10.0 @firebase/rules-unit-testing@4 firebase-tools@14
+      - run: npx firebase emulators:exec --only firestore --project demo-appcore "node --test tests/firestore.test.cjs"
