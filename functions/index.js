@@ -26,3 +26,29 @@ exports.publishRelease=onCall(async request=>{
  return {published:true,code:d.code};
  });
 });
+
+const {getMessaging}=require("firebase-admin/messaging");
+exports.sendTestNotification=onCall(async request=>{
+ if(request.auth?.uid!==owner)throw new HttpsError("permission-denied","Owner required");
+ const {appId,draftId,confirm}=request.data||{};
+ if(typeof appId!=="string"||!/^[a-z0-9][a-z0-9-]{1,49}$/.test(appId)||typeof draftId!=="string"||!/^[A-Za-z0-9]{20}$/.test(draftId)||confirm!==true)throw new HttpsError("invalid-argument","Invalid request");
+ const ref=db.collection("notificationDrafts").doc(draftId);
+ const audit=db.collection("auditLogs").doc();
+ const payload=await db.runTransaction(async tx=>{
+ const [app,draft,target]=await Promise.all([tx.get(db.collection("apps").doc(appId)),tx.get(ref),tx.get(db.collection("notificationTestTargets").doc(appId))]);
+ if(!app.exists||!draft.exists||!target.exists)throw new HttpsError("failed-precondition","Missing app, draft or registered test device");
+ const d=draft.data(),a=app.data(),t=target.data();
+ if(!(a.modules??(["exmore","3al-tabloh"].includes(appId)?["notifications"]:[])).includes("notifications")||d.appId!==appId||d.status!=="draft"||d.audience!=="test"||t.enabled!==true||typeof t.token!=="string"||!t.token)throw new HttpsError("failed-precondition","Test dispatch unavailable");
+ if(typeof d.title!=="string"||!d.title.trim()||d.title.length>100||typeof d.body!=="string"||!d.body.trim()||d.body.length>1000)throw new HttpsError("invalid-argument","Invalid notification");
+ tx.update(ref,{status:"dispatching",dispatchStartedAt:FieldValue.serverTimestamp()});
+ tx.set(audit,{appId,draftId,action:"notification.test",actor:request.auth.uid,status:"dispatching",createdAt:FieldValue.serverTimestamp()});
+ return {token:t.token,notification:{title:d.title,body:d.body},data:{appId,draftId}};
+ });
+ let messageId;
+ try{messageId=await getMessaging().send(payload);}catch(e){
+ const batch=db.batch();batch.update(ref,{status:"deliveryUnknown"});batch.update(audit,{status:"deliveryUnknown"});await batch.commit();
+ throw new HttpsError("unknown","Delivery uncertain; automatic retry disabled");
+ }
+ const batch=db.batch();batch.update(ref,{status:"sent",messageId,sentAt:FieldValue.serverTimestamp()});batch.update(audit,{status:"sent",messageId});await batch.commit();
+ return {sent:true,messageId};
+});
