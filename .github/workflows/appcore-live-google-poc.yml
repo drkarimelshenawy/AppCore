@@ -1,0 +1,37 @@
+name: AppCore live Google proof
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/appcore-command-center]
+    paths: ['.github/workflows/appcore-live-google-poc.yml']
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.APPCORE_WIF_PROVIDER || vars.WIF_PROVIDER }}
+          service_account: appcore-worker@appcore-2026.iam.gserviceaccount.com
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/cloud-platform
+        id: auth
+      - name: Live isolated read write and FCM validation
+        env:
+          TOKEN: ${{ steps.auth.outputs.access_token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=https://firestore.googleapis.com/v1/projects/appcore-2026/databases/\(default\)/documents
+          id="github-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          doc="$base/appcore_poc/$id"
+          auth="Authorization: Bearer $TOKEN"
+          curl -fsS -X PATCH -H "$auth" -H 'Content-Type: application/json' "$doc?currentDocument.exists=false" -d '{"fields":{"marker":{"stringValue":"appcore-poc"}}}' >/dev/null
+          trap 'curl -fsS -X DELETE -H "$auth" "$doc" >/dev/null' EXIT
+          curl -fsS -H "$auth" "$doc" | jq -e '.fields.marker.stringValue == "appcore-poc"' >/dev/null
+          echo 'Firestore write/read verified'
+          curl -fsS -X POST -H "$auth" -H 'Content-Type: application/json' https://fcm.googleapis.com/v1/projects/appcore-2026/messages:send -d '{"validate_only":true,"message":{"topic":"appcore_poc_test","data":{"probe":"true"}}}' >/dev/null
+          echo 'FCM validation verified; no notification sent'
