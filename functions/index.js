@@ -77,6 +77,7 @@ exports.getRemoteConfig=onCall(async request=>{
  if(typeof appId!=="string"||!/^[a-z0-9][a-z0-9-]{1,49}$/.test(appId))throw new HttpsError("invalid-argument","Invalid app");
  const app=await db.collection("apps").doc(appId).get();
  if(!app.exists)throw new HttpsError("not-found","App missing");
+ if(!(app.data().modules??(["exmore","3al-tabloh"].includes(appId)?["remote"]:[])).includes("remote"))throw new HttpsError("failed-precondition","Remote control disabled");
  const snap=await db.collection("remoteConfigs").doc(appId).get();
  return snap.exists?{revision:snap.data().revision,flags:snap.data().flags}:{revision:0,flags:{}};
 });
