@@ -67,6 +67,34 @@ service cloud.firestore {
     && (!exists(/databases/$(database)/documents/publicConfigs/$(id)) || request.resource.data.revision > resource.data.revision);
    allow delete: if false;
   }
+
+  // APPCORE_DEVICE_REGISTRY_V1
+  match /deviceRegistry/{appId}/devices/{deviceId} {
+    allow read, delete: if owner()
+      && appId in ['exmore','altabloh'];
+
+    allow create, update: if owner()
+      && appId in ['exmore','altabloh']
+      && deviceId.matches('[a-f0-9-]{36}')
+      && request.resource.data.keys().hasAll([
+        'projectId','platform','versionCode',
+        'lastSeen','source'
+      ])
+      && request.resource.data.keys().hasOnly([
+        'projectId','platform','versionCode',
+        'lastSeen','source'
+      ])
+      && request.resource.data.projectId == appId
+      && request.resource.data.platform in ['android','web']
+      && (appId != 'exmore'
+          || request.resource.data.platform == 'android')
+      && request.resource.data.versionCode is int
+      && request.resource.data.versionCode > 0
+      && request.resource.data.versionCode <= 2100000000
+      && request.resource.data.source == 'manual-test'
+      && request.resource.data.lastSeen == request.time;
+  }
+
   match /{document=**} { allow read, write: if false; }
  }
 }

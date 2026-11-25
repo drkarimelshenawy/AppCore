@@ -154,3 +154,90 @@ window.appcorePublishConfig=async(id,platform,expectedRevision,confirm)=>{
   tx.set(ref,value);return value;
  });
 };
+
+
+// APPCORE_DEVICE_REGISTRY_V1
+window.appcoreDevices = async (id, action, input = {}) => {
+  const user = auth.currentUser;
+  const ticket = generation;
+
+  if (!ready || user?.uid !== owner)
+    throw Error('Unauthorized');
+
+  const projectId = canonicalProjectId(id);
+
+  if (!['exmore','altabloh'].includes(projectId))
+    throw Error('Unsupported application');
+
+  const col = collection(
+    db,'deviceRegistry',projectId,'devices'
+  );
+
+  function verifySession() {
+    if (!ready || generation !== ticket ||
+        auth.currentUser !== user)
+      throw Error('Session changed');
+  }
+
+  if (action === 'list') {
+    const snap = await getDocs(
+      query(col,orderBy('lastSeen','desc'),limit(100))
+    );
+
+    verifySession();
+
+    return snap.docs.map(d => ({
+      id:d.id,
+      ...d.data()
+    }));
+  }
+
+  if (action === 'register') {
+    const platform = input.platform;
+    const versionCode = Number(input.versionCode);
+
+    if (!['android','web'].includes(platform) ||
+        (projectId === 'exmore' && platform !== 'android') ||
+        !Number.isSafeInteger(versionCode) ||
+        versionCode < 1 || versionCode > 2100000000)
+      throw Error('Invalid device');
+
+    const deviceId = crypto.randomUUID();
+
+    verifySession();
+
+    await setDoc(doc(col,deviceId),{
+      projectId,
+      platform,
+      versionCode,
+      source:'manual-test',
+      lastSeen:serverTimestamp()
+    });
+
+    return {deviceId};
+  }
+
+  if (!/^[a-f0-9-]{36}$/.test(input.id || ''))
+    throw Error('Invalid device ID');
+
+  if (!['touch','delete'].includes(action))
+    throw Error('Unsupported operation');
+
+  return runTransaction(db,async tx => {
+    const ref = doc(col,input.id);
+    const old = await tx.get(ref);
+
+    verifySession();
+
+    if (!old.exists())
+      throw Error('Device not found');
+
+    if (action === 'touch') {
+      tx.update(ref,{
+        lastSeen:serverTimestamp()
+      });
+    } else {
+      tx.delete(ref);
+    }
+  });
+};

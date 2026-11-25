@@ -10,7 +10,10 @@ function card(title,detail){const n=el("section",undefined,"card");n.append(el("
 function show(key){active=key;main.replaceChildren();for(const b of nav.children)b.setAttribute("aria-current",String(b.dataset.key===key));
 if(key==="overview"){main.append(el("p","WORKSPACE / OVERVIEW","eyebrow"),el("h1","مركز القيادة"));const grid=el("div",undefined,"grid");for(const [label,value] of [["Applications",connected?String(apps.length):"—"],["Assigned modules",connected?String(apps.reduce((n,a)=>n+selected(a).length,0)):"—"],["Active devices","—"],["Crash-free users","—"]]){const c=el("section",undefined,"card");c.append(el("div",value,"metric"),el("p",label));grid.append(c);}main.append(grid);}
 if(key==="overview"||key==="apps"){main.append(el("h2","APPLICATIONS","eyebrow"));for(const a of apps){const c=card(a.name,a.connected?"تم تسجيل الربط":"في انتظار ربط التطبيق");c.append(el("p",a.projectId||a.id),el("p",a.applicationId||"Android ID غير محدد"));const btn=el("button","عرض الخدمات");btn.onclick=()=>show(a.id);c.append(btn);main.append(c);}if(!apps.length)main.append(card("لا توجد تطبيقات معروضة","سجل الدخول للتحقق من قاعدة البيانات."));if(key==="apps"&&connected){const form=el("form",undefined,"card");form.append(el("h2","إضافة تطبيق"));const id=el("input"),name=el("input");id.placeholder="app-id";id.pattern="[a-z0-9][a-z0-9-]{1,49}";id.required=true;name.placeholder="اسم التطبيق";name.required=true;name.maxLength=100;for(const [label,input] of [["معرف التطبيق",id],["الاسم",name]]){const l=el("label",label);l.append(input);form.append(l);}const save=el("button","إضافة");const status=el("p","");status.setAttribute("role","status");form.append(save,status);form.onsubmit=async e=>{e.preventDefault();save.disabled=true;try{await window.appcoreCreateApp(id.value,name.value);}catch(err){status.textContent="تعذر الإضافة: "+(err.code||err.message);}finally{save.disabled=false;}};main.append(form);}}
-else if(apps.some(a=>a.id===key)){const a=apps.find(a=>a.id===key);main.append(el("h1",a.name));if(["exmore","3al-tabloh"].includes(a.id)){const gateway=card("Cloudflare Gateway","اختبار قراءة سجل التطبيق بحساب الإدارة، وليس اتصال أجهزة المستخدمين.");const check=el("button","اختبار الاتصال"),result=el("p","لم يتم الاختبار");result.setAttribute("role","status");check.onclick=async()=>{check.disabled=true;try{await window.appcoreCheckGateway(a.id);result.textContent="نجحت القراءة عبر Cloudflare وFirestore";}catch(e){result.textContent="تعذر الاتصال: "+e.message;}finally{check.disabled=false;}};gateway.append(check,result);main.append(gateway);}const form=el("form",undefined,"card");const inputs=[];for(const [m,label] of Object.entries(modules)){const row=el("label",undefined,"module-option");const input=el("input");input.type="checkbox";input.checked=selected(a).includes(m);inputs.push([m,input]);row.append(input,el("span",label));form.append(row);}const save=el("button","حفظ إعدادات الخدمات");save.type="submit";const status=el("p","التكامل التشغيلي غير متحقق");status.setAttribute("role","status");form.append(save,status);form.onsubmit=async e=>{e.preventDefault();save.disabled=true;try{await window.appcoreSaveModules(a.id,inputs.filter(x=>x[1].checked).map(x=>x[0]));status.textContent="تم الحفظ";}catch(err){status.textContent="تعذر الحفظ: "+(err.code||err.message);}finally{save.disabled=false;}};main.append(form);if(selected(a).includes("remote"))main.append(configDraftPanel(a));for(const kind of ["releases","notifications"])if(selected(a).includes(kind))main.append(draftPanel(a,kind));for(const kind of selected(a).filter(k=>!["releases","notifications","remote"].includes(k)))main.append(servicePanel(a,kind));main.append(servicePanel(a,"audit"));}
+else if(apps.some(a=>a.id===key)){const a=apps.find(a=>a.id===key);main.append(el("h1",a.name));if(["exmore","3al-tabloh"].includes(a.id)){const gateway=card("Cloudflare Gateway","اختبار قراءة سجل التطبيق بحساب الإدارة، وليس اتصال أجهزة المستخدمين.");const check=el("button","اختبار الاتصال"),result=el("p","لم يتم الاختبار");result.setAttribute("role","status");check.onclick=async()=>{check.disabled=true;try{await window.appcoreCheckGateway(a.id);result.textContent="نجحت القراءة عبر Cloudflare وFirestore";}catch(e){result.textContent="تعذر الاتصال: "+e.message;}finally{check.disabled=false;}};gateway.append(check,result);main.append(gateway);}const form=el("form",undefined,"card");const inputs=[];for(const [m,label] of Object.entries(modules)){const row=el("label",undefined,"module-option");const input=el("input");input.type="checkbox";input.checked=selected(a).includes(m);inputs.push([m,input]);row.append(input,el("span",label));form.append(row);}const save=el("button","حفظ إعدادات الخدمات");save.type="submit";const status=el("p","التكامل التشغيلي غير متحقق");status.setAttribute("role","status");form.append(save,status);form.onsubmit=async e=>{e.preventDefault();save.disabled=true;try{await window.appcoreSaveModules(a.id,inputs.filter(x=>x[1].checked).map(x=>x[0]));status.textContent="تم الحفظ";}catch(err){status.textContent="تعذر الحفظ: "+(err.code||err.message);}finally{save.disabled=false;}};main.append(form);if(selected(a).includes("remote"))main.append(configDraftPanel(a));for(const kind of ["releases","notifications"])if(selected(a).includes(kind))main.append(draftPanel(a,kind));for(const kind of selected(a).filter(k=>!["releases","notifications","remote"].includes(k)))main.append(servicePanel(a,kind));
+if (["exmore","3al-tabloh"].includes(a.id))
+  main.append(deviceRegistryPanel(a));
+main.append(servicePanel(a,"audit"));}
 else if(key==="logs"){main.append(el("h1","SYSTEM CONSOLE"),card(connected?"[OK] Firestore connection":"[OFFLINE] Firestore not verified","[PENDING] Application integration / Notification gateway"));}
 else {main.append(el("h1",key==="settings"?"الإعدادات":"المراقبة"),card("حالة الخدمات","لا توجد بيانات تشغيلية متحققة بعد."));}}
 for(const [key,label] of [["overview","الرئيسية"],["apps","التطبيقات"],["monitor","المراقبة"],["logs","السجل"],["settings","الإعدادات"]]){const b=el("button",label);b.dataset.key=key;b.onclick=()=>show(key);nav.append(b);}
@@ -43,3 +46,123 @@ function servicePanel(a,kind){
 }
 
 function configDraftPanel(a){const p=card("إعدادات التحكم عن بُعد","النشر اختياري ومؤقت ولا يعطل الوظائف المحلية.");const platform=el("select"),editor=el("textarea"),load=el("button","تحميل المسودة"),save=el("button","حفظ المسودة"),publish=el("button","نشر المسودة المحفوظة"),status=el("p","");for(const k of (a.id==="exmore"?["android"]:["android","web"])){const o=el("option",k);o.value=k;platform.append(o);}let revision=null,busy=false;function refresh(){load.disabled=busy;platform.disabled=busy;save.disabled=busy||revision===null;publish.disabled=busy||!revision||!["exmore","3al-tabloh"].includes(a.id);}function reset(){revision=null;editor.value="{}";refresh();}platform.onchange=reset;reset();async function act(fn){if(busy)return;busy=true;refresh();try{await fn();}catch(e){status.textContent=e.message;}finally{busy=false;refresh();}}load.onclick=()=>act(async()=>{const d=await window.appcoreConfigDraft(a.id,platform.value);revision=d.revision;editor.value=JSON.stringify(d.config,null,2);status.textContent="تم التحميل";});save.onclick=()=>act(async()=>{const d=await window.appcoreConfigDraft(a.id,platform.value,JSON.parse(editor.value),revision);revision=d.revision;editor.value=JSON.stringify(d.config,null,2);status.textContent="تم حفظ المسودة";});publish.onclick=()=>{if(!confirm("نشر المسودة المحفوظة لهذه المنصة؟ التعديلات غير المحفوظة لن تنشر."))return;return act(async()=>{const d=await window.appcorePublishConfig(a.id,platform.value,revision,true);status.textContent="تم حفظ الإعداد المنشور — الإصدار "+d.revision+"؛ وصوله للأجهزة غير متحقق بعد.";});};p.append(platform,load,editor,save,publish,status);return p;}
+
+
+// APPCORE_DEVICE_REGISTRY_V1
+function deviceRegistryPanel(a) {
+  const panel = card(
+    "إدارة الأجهزة",
+    "سجل الأجهزة التجريبية — التسجيل اليدوي"
+  );
+
+  const platform = el("select");
+
+  for (const p of (
+    a.id === "exmore" ? ["android"] : ["android","web"]
+  )) {
+    const option = el("option",p);
+    option.value = p;
+    platform.append(option);
+  }
+
+  const version = el("input");
+  version.type = "number";
+  version.min = "1";
+  version.max = "2100000000";
+  version.placeholder = "Version Code";
+
+  const register = el("button","تسجيل جهاز تجريبي");
+  const refresh = el("button","تحديث القائمة");
+  const status = el("p","");
+  const list = el("div");
+
+  status.setAttribute("role","status");
+
+  panel.append(
+    platform,version,register,refresh,status,list
+  );
+
+  let busy = false;
+
+  async function load() {
+    const rows = await window.appcoreDevices(
+      a.id,"list"
+    );
+
+    list.replaceChildren();
+
+    status.textContent =
+      "السجلات المعروضة: " + rows.length;
+
+    for (const d of rows) {
+      const seen = d.lastSeen?.toDate?.();
+
+      const c = card(
+        d.platform + " — " + d.versionCode,
+        d.id
+      );
+
+      c.append(el("p",
+        "آخر تحديث يدوي: " +
+        (seen ? seen.toLocaleString() : "غير متاح")
+      ));
+
+      const touch = el("button","تحديث النشاط يدويًا");
+      const remove = el("button","حذف التسجيل");
+
+      touch.onclick = () => act(async () => {
+        await window.appcoreDevices(
+          a.id,"touch",{id:d.id}
+        );
+      });
+
+      remove.onclick = () => {
+        if (!confirm("حذف تسجيل الجهاز؟")) return;
+
+        return act(async () => {
+          await window.appcoreDevices(
+            a.id,"delete",{id:d.id}
+          );
+        });
+      };
+
+      c.append(touch,remove);
+      list.append(c);
+    }
+  }
+
+  async function act(fn) {
+    if (busy) return;
+
+    busy = true;
+    register.disabled = true;
+    refresh.disabled = true;
+
+    try {
+      await fn();
+      await load();
+    } catch(e) {
+      status.textContent =
+        "تعذر التنفيذ: " + e.message;
+    } finally {
+      busy = false;
+      register.disabled = false;
+      refresh.disabled = false;
+    }
+  }
+
+  register.onclick = () => act(async () => {
+    await window.appcoreDevices(
+      a.id,"register",{
+        platform:platform.value,
+        versionCode:version.value
+      }
+    );
+  });
+
+  refresh.onclick = () => act(async () => {});
+
+  refresh.onclick();
+
+  return panel;
+}
