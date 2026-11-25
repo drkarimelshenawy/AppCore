@@ -8,8 +8,9 @@ export function createOwnerFirestore({projectId,fetchImpl=fetch}){
   if(!/^Bearer [A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(auth)||auth.length>8192)return new Response(null,{status:401});
   try{
    const result=await fetchImpl(base+(appId==='altabloh'?'3al-tabloh':appId),{headers:{Authorization:auth},redirect:'error'});
+   if(!result.ok)console.log(JSON.stringify({event:'owner-firestore-upstream',status:result.status}));
    if(!result.ok)return new Response(null,{status:[401,403,404].includes(result.status)?result.status:502});
    return Response.json(await result.json(),{headers:{'Cache-Control':'no-store'}});
-  }catch{return new Response(null,{status:502});}
+  }catch(e){console.log(JSON.stringify({event:'owner-firestore-failure',name:String(e?.name||'Error')}));return new Response(null,{status:502});}
  };
 }
