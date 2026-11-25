@@ -1,0 +1,36 @@
+name: AppCore gateway preview
+on:
+  push:
+    branches: [feat/appcore-command-center]
+    paths: ['.github/workflows/appcore-gateway-preview.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify deployed gateway access boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=https://appcore-poc.dr-karimelshenawy.workers.dev
+          curl -fsS "$base/health" | jq -e '.status=="ok" and .secretBinding==true'
+          for app in exmore altabloh; do
+            test "$(curl -sS -o /dev/null -w '%{http_code}' "$base/api/apps/$app")" = 401
+            test "$(curl -sS -o /dev/null -w '%{http_code}' -H 'Origin: https://example.invalid' "$base/api/apps/$app")" = 403
+            curl -fsS -D /tmp/appcore-headers -o /dev/null -X OPTIONS -H 'Origin: https://appcore-2026.web.app' -H 'Access-Control-Request-Method: GET' -H 'Access-Control-Request-Headers: authorization' "$base/api/apps/$app"
+            grep -qi '^access-control-allow-origin: https://appcore-2026.web.app' /tmp/appcore-headers
+          done
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: projects/316863421809/locations/global/workloadIdentityPools/appcore-github/providers/github
+          service_account: appcore-deploy@appcore-2026.iam.gserviceaccount.com
+      - name: Deploy temporary preview only
+        run: npx --yes firebase-tools@14 hosting:channel:deploy gateway-poc --expires 7d --project appcore-2026 --non-interactive
