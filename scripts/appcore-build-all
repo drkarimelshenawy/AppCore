@@ -17,8 +17,27 @@ update AppCore feat/appcore-command-center
 update ExMore feat/exmore-official-identity-migration
 update AlTabloh feat/official-identity-migration-20261125
 APPCORE_ROOT="$workspace/AppCore" bash "$workspace/AppCore/scripts/appcore-deploy" verify
+(cd "$workspace/AlTabloh" && npm run verify:bundle && npm run check && npm test)
 test -x "$HOME/bin/exmore-build" || { echo 'Missing ~/bin/exmore-build' >&2; exit 1; }
 test -x "$HOME/bin/altabloh-build" || { echo 'Missing ~/bin/altabloh-build' >&2; exit 1; }
+marker=$(mktemp)
+trap 'rm -f "$marker"' EXIT
 (cd "$workspace/ExMore" && "$HOME/bin/exmore-build")
 (cd "$workspace/AlTabloh" && "$HOME/bin/altabloh-build")
-echo 'Inspect APK signing certificates and version codes using apksigner verify --print-certs <apk> and aapt dump badging <apk>.'
+command -v apksigner >/dev/null || { echo 'apksigner is required for final verification' >&2; exit 1; }
+command -v aapt >/dev/null || { echo 'aapt is required for final verification' >&2; exit 1; }
+for spec in 'ExMore:com.exmore.app' 'AlTabloh:com.altabloh.app'; do
+  project=${spec%%:*}
+  expected=${spec#*:}
+  found=0
+  while IFS= read -r -d '' apk; do
+    package=$(aapt dump badging "$apk" | sed -n "s/^package: name='\\([^']*\\)'.*/\\1/p" | head -1)
+    if [ "$package" = "$expected" ]; then
+      apksigner verify --verbose --print-certs "$apk"
+      aapt dump badging "$apk" | sed -n '1p'
+      sha256sum "$apk"
+      found=1
+    fi
+  done < <(find "$workspace/$project" "$HOME/storage/downloads" -type f -name '*.apk' -newer "$marker" -print0 2>/dev/null)
+  test "$found" = 1 || { echo "No newly built verified APK found for $expected" >&2; exit 1; }
+done
