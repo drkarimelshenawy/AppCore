@@ -22,7 +22,19 @@ export default {
  async fetch(request,env){
   const path=new URL(request.url).pathname;
   const match=/^\/api\/apps\/(exmore|altabloh)$/.exec(path);
-  if(request.method==='GET'&&match)return readApp(request,match[1]);
+  if(match){
+   const origin=request.headers.get('Origin');
+   const allowed=origin==='https://appcore-2026.web.app'||origin==='https://appcore-2026.firebaseapp.com';
+   const headers=allowed?{'Access-Control-Allow-Origin':origin,'Access-Control-Allow-Methods':'GET, OPTIONS','Access-Control-Allow-Headers':'Authorization','Vary':'Origin'}:{};
+   if(origin&&!allowed)return new Response(null,{status:403});
+   if(request.method==='OPTIONS')return new Response(null,{status:204,headers});
+   if(request.method==='GET'){
+    const result=await readApp(request,match[1]);
+    const response=new Response(result.body,result);
+    for(const [k,v] of Object.entries(headers))response.headers.set(k,v);
+    return response;
+   }
+  }
   if(request.method!=='GET'||path!=='/health')return new Response('Not found',{status:404});
   return Response.json({service:'appcore-poc',status:'ok',secretBinding:env.POC_TEST_SECRET==='synthetic-test-only-not-a-credential'},{headers:{'Cache-Control':'no-store'}});
  },
