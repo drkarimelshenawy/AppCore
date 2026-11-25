@@ -1,6 +1,6 @@
 // Official identity is independent of historical Firestore routing.
 export const PROJECTS=Object.freeze({
- exmore:Object.freeze({projectId:'exmore',name:'ExMore',applicationId:'com.exmore.app',storageId:'exmore',androidStatus:'unverified'}),
+ exmore:Object.freeze({projectId:'exmore',name:'ExMore',applicationId:'com.exmore.app',legacyApplicationIds:Object.freeze(['com.todoshift.app']),platforms:Object.freeze(['android']),storageId:'exmore',androidStatus:'unverified'}),
  altabloh:Object.freeze({projectId:'altabloh',name:'ع التابلوه',applicationId:'com.altabloh.app',legacyApplicationIds:Object.freeze(['com.drkarimelshenawy.altabloh']),platforms:Object.freeze(['android','web']),storageId:'3al-tabloh',androidStatus:'verified'}),
  appcore:Object.freeze({projectId:'appcore',name:'AppCore',applicationId:'com.appcore.admin',storageId:'appcore',androidStatus:'future'})
 });

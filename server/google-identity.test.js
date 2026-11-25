@@ -19,3 +19,5 @@ test('canonical public release lookup preserves legacy records',async()=>{assert
 
 import {createControlCenter} from './control-center.js';
 test('owner API resolves canonical identity to historical storage',async()=>{const api=createControlCenter({authorize:async()=>true,google:{getDocument:async(...args)=>args}});for(const id of ['altabloh','3al-tabloh'])assert.deepEqual(await api.readApp({},id,'android'),{target:{appId:'altabloh',platform:'android'},document:['apps','3al-tabloh']});});
+
+test('ExMore retains verified source package alias',()=>{assert.deepEqual(PROJECTS.exmore.legacyApplicationIds,['com.todoshift.app']);assert.equal(PROJECTS.exmore.androidStatus,'unverified');});

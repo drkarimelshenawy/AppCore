@@ -43,7 +43,7 @@ async function connect(user, ticket) {
  for(const d of snapshot.docs){
   if(ticket!==generation)return;
   const meta=identityMetadata(d.id);
-  if(Object.entries(meta).some(([k,v])=>d.data()[k]!==v)){
+  if(Object.entries(meta).some(([k,v])=>JSON.stringify(d.data()[k])!==JSON.stringify(v))){
    await runTransaction(db,async tx=>{const current=await tx.get(d.ref);if(ticket!==generation||auth.currentUser?.uid!==owner||!current.exists())throw Error('Session or app unavailable');tx.update(d.ref,meta);});
   }
  }
