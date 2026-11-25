@@ -1,1 +1,38 @@
-x
+#!/usr/bin/env bash
+set -euo pipefail
+mode=${1:-verify}
+root=${APPCORE_ROOT:-$HOME/AppCore-Workspace/AppCore}
+base=${APPCORE_WORKER_URL:-https://appcore-poc.dr-karimelshenawy.workers.dev}
+cd "$root"
+verify() {
+  (cd server && npm test)
+  (cd functions && npm test)
+  node --test tests/*.test.cjs
+  for target in exmore/android altabloh/android altabloh/web; do
+    response=$(curl -fsS --max-time 20 "$base/api/v1/apps/$target/config")
+    TARGET="$target" RESPONSE="$response" node -e '
+      const [projectId,platform]=process.env.TARGET.split("/");
+      const c=JSON.parse(process.env.RESPONSE);
+      if(c.schemaVersion!==1||c.projectId!==projectId||c.platform!==platform||
+         !Number.isSafeInteger(c.revision)||c.revision<1||
+         !Number.isSafeInteger(c.expiresAt)||c.expiresAt<=Date.now()||
+         typeof c.maintenance!=="boolean"||!c.flags||
+         typeof c.flags!=="object"||Array.isArray(c.flags))process.exit(1);
+    '
+    printf 'Verified config: %s\n' "$target"
+  done
+  test "$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 "$base/api/apps/exmore")" = 401
+  test "$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 -H 'Origin: https://example.invalid' "$base/api/apps/exmore")" = 403
+}
+case "$mode" in
+  verify) verify ;;
+  preview)
+    verify
+    command -v firebase >/dev/null || { echo 'Install firebase-tools first' >&2; exit 1; }
+    firebase hosting:channel:deploy appcore-local --expires 7d --project appcore-2026 --non-interactive
+    ;;
+  production)
+    echo 'Production deployment requires a separate explicit approval and reviewed release procedure.' >&2
+    exit 2 ;;
+  *) echo 'Usage: appcore-deploy {verify|preview|production}' >&2; exit 2 ;;
+esac
