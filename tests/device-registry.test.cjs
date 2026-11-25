@@ -76,3 +76,25 @@ test('unexpected personal data denied',async()=>{
   const db=env.authenticatedContext(owner).firestore();
   await assertFails(setDoc(ref(db),data({phone:'test'})));
 });
+
+
+test('malformed device ID denied',async()=>{
+  const db=env.authenticatedContext(owner).firestore();
+  const bad=doc(
+    db,'deviceRegistry','exmore','devices','-'.repeat(36)
+  );
+  await assertFails(setDoc(bad,data()));
+});
+
+test('existing device platform cannot change',async()=>{
+  const db=env.authenticatedContext(owner).firestore();
+  const target=ref(db,'altabloh');
+  await assertSucceeds(setDoc(target,data({
+    projectId:'altabloh',
+    platform:'android'
+  })));
+  await assertFails(setDoc(target,data({
+    projectId:'altabloh',
+    platform:'web'
+  })));
+});

@@ -75,7 +75,9 @@ service cloud.firestore {
 
     allow create, update: if owner()
       && appId in ['exmore','altabloh']
-      && deviceId.matches('[a-f0-9-]{36}')
+      && deviceId.matches(
+        '[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}'
+      )
       && request.resource.data.keys().hasAll([
         'projectId','platform','versionCode',
         'lastSeen','source'
@@ -92,6 +94,9 @@ service cloud.firestore {
       && request.resource.data.versionCode > 0
       && request.resource.data.versionCode <= 2100000000
       && request.resource.data.source == 'manual-test'
+      && (resource == null ||
+          (request.resource.data.projectId == resource.data.projectId
+           && request.resource.data.platform == resource.data.platform))
       && request.resource.data.lastSeen == request.time;
   }
 
