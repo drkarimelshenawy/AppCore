@@ -1,3 +1,4 @@
+import {readPublicConfig} from './public-config.js';
 import {checkWebsite} from './website-monitor.js';
 import {delegatedProof} from './delegated-proof.js';
 import {createOwnerFirestore} from './owner-firestore.js';
@@ -23,6 +24,8 @@ async function run(){return Promise.all(endpoints.map(probe));}
 export default {
  async fetch(request,env){
   const path=new URL(request.url).pathname;
+  const config=/^\/api\/v1\/apps\/([a-z0-9-]+)\/([a-z]+)\/config$/.exec(path);
+  if(config&&request.method==='GET')return readPublicConfig(config[1],config[2]);
   if(path==='/internal/delegated-proof'&&request.method==='POST'&&!request.headers.has('Origin'))return delegatedProof(request);
   const match=/^\/api\/apps\/(exmore|altabloh)(\/website)?$/.exec(path);
   if(match){

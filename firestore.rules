@@ -53,6 +53,11 @@ service cloud.firestore {
     && request.resource.data.publishedAt == request.time
     && (!exists(/databases/$(database)/documents/publishedReleases/$(id)) || request.resource.data.code > resource.data.code);
   }
+  // Public configuration contains no private or device data. Publication stays gated.
+  match /publicConfigs/{id} {
+   allow get: if id in ['exmore_android','altabloh_android','altabloh_web'];
+   allow list, write: if false;
+  }
   match /{document=**} { allow read, write: if false; }
  }
 }

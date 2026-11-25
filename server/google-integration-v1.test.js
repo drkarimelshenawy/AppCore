@@ -1,0 +1,10 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {targetFor,publicConfig} from '../dashboard/integration-v1.mjs';
+import {readConfig} from '../sdk/web/integration-client.mjs';
+import {readPublicConfig} from './public-config.js';
+const now=Date.now(),target=targetFor('altabloh','web'),value={schemaVersion:1,...target,revision:1,expiresAt:now+10000,maintenance:false,flags:{optional:true}};
+test('project and platform isolation',()=>{assert.throws(()=>targetFor('exmore','web'));assert.throws(()=>targetFor('appcore','android'));assert.throws(()=>publicConfig(value,targetFor('altabloh','android'),now));});
+test('reject private fields and expired config',()=>{assert.throws(()=>publicConfig({...value,email:'x'},target,now));assert.throws(()=>publicConfig(value,target,now+10001));});
+test('offline defaults and valid cache',async()=>{const fetchImpl=async()=>{throw Error('offline')};assert.equal((await readConfig('altabloh','web',{fetchImpl,now})).source,'local');assert.equal((await readConfig('altabloh','web',{fetchImpl,now,cache:{get:async()=>value}})).source,'cache');});
+test('network cannot roll back cached revision',async()=>{const r=await readConfig('altabloh','web',{now,cache:{get:async()=>({...value,revision:2})},fetchImpl:async()=>Response.json(value)});assert.equal(r.revision,2);});
+test('public endpoint rejects future target and handles missing data',async()=>{assert.equal((await readPublicConfig('appcore','android',()=>{throw Error('unexpected')})).status,404);assert.equal((await readPublicConfig('altabloh','web',async()=>new Response(null,{status:404}))).status,404);});
