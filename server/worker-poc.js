@@ -1,3 +1,4 @@
+import {delegatedProof} from './delegated-proof.js';
 import {createOwnerFirestore} from './owner-firestore.js';
 const readApp=createOwnerFirestore({projectId:'appcore-2026'});
 // Isolated network diagnostics. No credentials, writes or notification delivery.
@@ -21,6 +22,7 @@ async function run(){return Promise.all(endpoints.map(probe));}
 export default {
  async fetch(request,env){
   const path=new URL(request.url).pathname;
+  if(path==='/internal/delegated-proof'&&request.method==='POST'&&!request.headers.has('Origin'))return delegatedProof(request);
   const match=/^\/api\/apps\/(exmore|altabloh)$/.exec(path);
   if(match){
    const origin=request.headers.get('Origin');

@@ -37,3 +37,11 @@ jobs:
           echo 'Firestore write/read verified'
           curl -fsS -X POST -H "$auth" -H 'Content-Type: application/json' https://fcm.googleapis.com/v1/projects/appcore-2026/messages:send -d '{"validate_only":true,"message":{"topic":"appcore_poc_test","data":{"probe":"true"}}}' >/dev/null
           echo 'FCM validation verified; no notification sent'
+      - name: Verify delegated Cloudflare Google access
+        shell: bash
+        run: |
+          set -euo pipefail
+          audience='https://iam.googleapis.com/projects/316863421809/locations/global/workloadIdentityPools/appcore-github/providers/github'
+          token=$(curl -fsS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=$audience" | jq -er .value)
+          echo "::add-mask::$token"
+          curl -fsS -X POST -H "Authorization: Bearer $token" https://appcore-poc.dr-karimelshenawy.workers.dev/internal/delegated-proof | jq -e '.read and .fcmValidated and (.notificationSent == false)'
