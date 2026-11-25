@@ -1,0 +1,40 @@
+name: AppCore send test notification
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        type: choice
+        options: [exmore, altabloh]
+        required: true
+      confirm:
+        description: Send a real message to the isolated test topic
+        type: boolean
+        default: false
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  send:
+    if: inputs.confirm == true && github.ref == 'refs/heads/feat/appcore-command-center'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: google-github-actions/auth@v3
+        id: auth
+        with:
+          workload_identity_provider: projects/316863421809/locations/global/workloadIdentityPools/appcore-github/providers/github
+          service_account: appcore-worker@appcore-2026.iam.gserviceaccount.com
+          create_credentials_file: false
+          export_environment_variables: false
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/cloud-platform
+      - name: Send isolated test message
+        env:
+          TOKEN: ${{ steps.auth.outputs.access_token }}
+          APP: ${{ inputs.app }}
+        run: |
+          set -euo pipefail
+          case "$APP" in exmore|altabloh) ;; *) exit 1 ;; esac
+          jq -n --arg topic "${APP}_test" '{message:{topic:$topic,notification:{title:"AppCore",body:"Connectivity test"}}}' |
+          curl --fail-with-body -sS -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d @- https://fcm.googleapis.com/v1/projects/appcore-2026/messages:send |
+          jq -e '.name | strings | startswith("projects/appcore-2026/messages/")'
