@@ -39,7 +39,8 @@ service cloud.firestore {
    allow create, update: if owner() && appId == '3al-tabloh' && kind in ['content','database'] && request.resource.data.keys().hasOnly(['title','body','revision','status','updatedAt']) && request.resource.data.status == 'draft' && request.resource.data.title is string && request.resource.data.title.size() <= 200 && request.resource.data.body is string && request.resource.data.body.size() <= 30000 && request.resource.data.revision is int && request.resource.data.revision > 0;
   }
   match /publishedReleases/{id} {
-   allow read: if owner();
+   allow get: if owner() || (id in ['exmore','3al-tabloh'] && resource.data.mandatory == false);
+   allow list: if owner();
    allow create, update: if owner()
     && request.resource.data.keys().hasOnly(['appId','version','code','url','notes','mandatory','publishedAt'])
     && request.resource.data.appId == id
