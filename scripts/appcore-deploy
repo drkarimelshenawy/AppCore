@@ -7,7 +7,15 @@ cd "$root"
 verify() {
   (cd server && npm test)
   (cd functions && npm test)
-  node --test tests/*.test.cjs
+  node -e "require('firebase/app'); require('@firebase/rules-unit-testing')" || {
+    echo 'Install test dependencies: npm install --no-save --no-package-lock firebase@11 @firebase/rules-unit-testing@4' >&2
+    return 1
+  }
+  (cd functions && node -e "require('firebase-functions/v2/https')") || {
+    echo 'Install functions dependencies: npm --prefix functions install --no-package-lock' >&2
+    return 1
+  }
+  npx --yes firebase-tools@14.27.0 emulators:exec --only firestore,functions --project demo-appcore 'node --test tests/*.test.cjs'
   for target in exmore/android altabloh/android altabloh/web; do
     response=$(curl -fsS --max-time 20 "$base/api/v1/apps/$target/config")
     TARGET="$target" RESPONSE="$response" node -e '
