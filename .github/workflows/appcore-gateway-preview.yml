@@ -27,7 +27,19 @@ jobs:
             test "$(curl -sS -o /dev/null -w '%{http_code}' -H 'Origin: https://example.invalid' "$base/api/apps/$app")" = 403
             curl -fsS -D /tmp/appcore-headers -o /dev/null -X OPTIONS -H 'Origin: https://appcore-2026.web.app' -H 'Access-Control-Request-Method: GET' -H 'Access-Control-Request-Headers: authorization' "$base/api/apps/$app"
             grep -qi '^access-control-allow-origin: https://appcore-2026.web.app' /tmp/appcore-headers
+            preview=https://appcore-2026--gateway-poc-ill315eo.web.app
+            curl -fsS -D /tmp/appcore-preview-headers -o /dev/null -X OPTIONS -H "Origin: $preview" -H 'Access-Control-Request-Method: GET' -H 'Access-Control-Request-Headers: authorization' "$base/api/apps/$app"
+            grep -Fiq "access-control-allow-origin: $preview" /tmp/appcore-preview-headers
+            test "$(curl -sS -o /dev/null -w '%{http_code}' -H "Origin: $preview" "$base/api/apps/$app")" = 401
           done
+      - name: Verify published dashboard contains gateway integration
+        run: |
+          set -euo pipefail
+          base=https://appcore-2026--gateway-poc-ill315eo.web.app
+          curl -fsS "$base/auth.js" -o /tmp/appcore-auth.js
+          curl -fsS "$base/app.js" -o /tmp/appcore-app.js
+          grep -Fq 'window.appcoreCheckGateway' /tmp/appcore-auth.js
+          grep -Fq 'Cloudflare Gateway' /tmp/appcore-app.js
       - uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: projects/316863421809/locations/global/workloadIdentityPools/appcore-github/providers/github
