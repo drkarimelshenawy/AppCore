@@ -1,5 +1,6 @@
 // Public optional release lookup; no administrator credentials or user data.
 export async function checkRelease(appId,currentCode,{fetchImpl=(...a)=>globalThis.fetch(...a)}={}){
+ if(appId==='altabloh')appId='3al-tabloh';
  if(!['exmore','3al-tabloh'].includes(appId)||!Number.isSafeInteger(currentCode)||currentCode<0)throw Error('Invalid client');
  const url='https://firestore.googleapis.com/v1/projects/appcore-2026/databases/(default)/documents/publishedReleases/'+appId;
  const r=await fetchImpl(url,{redirect:'error',credentials:'omit',cache:'no-store'});

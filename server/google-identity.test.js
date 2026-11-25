@@ -11,3 +11,8 @@ test('official identities and historical routing',()=>{
  assert.equal(identityFor('constructor'),null);
  assert.deepEqual(identityMetadata('new-app'),{projectId:'new-app'});
 });
+
+import {createGatewayClient} from '../dashboard/gateway-client.mjs';
+import {checkRelease} from '../sdk/web/release-client.mjs';
+test('canonical and legacy gateway aliases preserve storage',async()=>{for(const id of ['altabloh','3al-tabloh']){const c=createGatewayClient({baseUrl:'https://example.com',getToken:async()=> 'token',fetchImpl:async url=>{assert.equal(url,'https://example.com/api/apps/altabloh');return Response.json({name:'projects/p/databases/d/documents/apps/3al-tabloh'});}});await c.readApp(id);}});
+test('canonical public release lookup preserves legacy records',async()=>{assert.equal(await checkRelease('altabloh',1,{fetchImpl:async url=>{assert.ok(url.endsWith('/publishedReleases/3al-tabloh'));return new Response(null,{status:404});}}),null);});

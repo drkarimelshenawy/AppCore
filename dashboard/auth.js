@@ -1,4 +1,4 @@
-import {identityMetadata,canonicalProjectId,storageIdFor} from './identity.mjs';
+import {identityMetadata,canonicalProjectId} from './identity.mjs';
 import {normalizeConfig,configId} from './config-contract.mjs';
 import {createGatewayClient} from './gateway-client.mjs';
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
@@ -44,7 +44,7 @@ async function connect(user, ticket) {
   if(ticket!==generation)return;
   const meta=identityMetadata(d.id);
   if(Object.entries(meta).some(([k,v])=>d.data()[k]!==v)){
-   await runTransaction(db,async tx=>{const current=await tx.get(d.ref);if(ticket!==generation||!current.exists())throw Error('Session or app unavailable');tx.update(d.ref,meta);});
+   await runTransaction(db,async tx=>{const current=await tx.get(d.ref);if(ticket!==generation||auth.currentUser?.uid!==owner||!current.exists())throw Error('Session or app unavailable');tx.update(d.ref,meta);});
   }
  }
  snapshot=await getDocs(ref);
