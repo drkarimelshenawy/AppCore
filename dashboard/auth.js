@@ -138,3 +138,18 @@ async function appcoreOperations(name,data){
  else throw Error('Operation not deployed');
  if(ticket!==generation||auth.currentUser!==user)throw Error('Session changed');return result;
 }
+
+// Explicit owner publication; local functionality is never gated by this record.
+window.appcorePublishConfig=async(id,platform,expectedRevision,confirm)=>{
+ if(!ready||auth.currentUser?.uid!==owner||confirm!==true)throw Error('Unauthorized or unconfirmed');
+ const {targetFor,publicConfig}=await import('./integration-v1.mjs');
+ const target=targetFor(id,platform),ticket=generation;
+ return runTransaction(db,async tx=>{
+  const draft=await tx.get(doc(db,'configDrafts',configId(id,platform)));
+  const ref=doc(db,'publicConfigs',target.projectId+'_'+platform),old=await tx.get(ref);
+  if(ticket!==generation||auth.currentUser?.uid!==owner||!draft.exists()||draft.data().revision!==expectedRevision)throw Error('Draft changed');
+  const config=normalizeConfig(draft.data().config);
+  const value=publicConfig({schemaVersion:1,...target,revision:(old.exists()?old.data().revision:0)+1,expiresAt:Date.now()+23*3600000,maintenance:config.maintenance,flags:config.flags},target);
+  tx.set(ref,value);return value;
+ });
+};
