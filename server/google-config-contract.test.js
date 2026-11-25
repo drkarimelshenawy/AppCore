@@ -1,0 +1,3 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {normalizeConfig,configId} from '../dashboard/config-contract.mjs';
+test('platform separation and safe defaults',()=>{assert.notEqual(configId('exmore','android'),configId('exmore','web'));assert.deepEqual(normalizeConfig({}),{maintenance:false,message:'',minimumVersion:0,flags:{}});});
+test('invalid flags and versions rejected',()=>{for(const input of [{flags:{bad:'true'}},{minimumVersion:-1},{maintenance:'false'},{flags:JSON.parse('{"__proto__":true}')}])assert.throws(()=>normalizeConfig(input));assert.throws(()=>configId('exmore','other'));});

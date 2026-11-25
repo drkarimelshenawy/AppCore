@@ -1,3 +1,4 @@
+import {normalizeConfig,configId} from './config-contract.mjs';
 import {createGatewayClient} from './gateway-client.mjs';
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
@@ -92,4 +93,12 @@ window.appcoreCheckGateway=async(id)=>{
  await client.readApp(id);
  if(ticket!==generation||auth.currentUser!==user)throw new Error("Session changed");
  return {ok:true,appId:id};
+};
+
+window.appcoreConfigDraft=async(id,platform,input,revision)=>{
+ if(!ready||auth.currentUser?.uid!==owner)throw Error('Unauthorized');
+ const ticket=generation,ref=doc(db,'configDrafts',configId(id,platform));
+ if(input===undefined){return runTransaction(db,async tx=>{const d=await tx.get(ref);return d.exists()?d.data():{revision:0,config:normalizeConfig({})};});}
+ const config=normalizeConfig(input);
+ return runTransaction(db,async tx=>{const app=await tx.get(doc(db,'apps',id)),old=await tx.get(ref);if(ticket!==generation||!ready||auth.currentUser?.uid!==owner||!app.exists())throw Error('Session or app unavailable');const current=old.exists()?old.data().revision:0;if(current!==revision)throw Error('Revision conflict');tx.set(ref,{appId:id,platform,revision:current+1,config,updatedAt:serverTimestamp()});return {revision:current+1,config};});
 };

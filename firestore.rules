@@ -15,6 +15,18 @@ service cloud.firestore {
    allow update: if owner() && resource.data.status == 'draft' && request.resource.data.status == 'draft' && request.resource.data.appId == resource.data.appId;
    allow delete: if owner() && resource.data.status == 'draft';
   }
+  match /configDrafts/{id} {
+   allow read: if owner();
+   allow create, update: if owner()
+    && request.resource.data.keys().hasOnly(['appId','platform','revision','config','updatedAt'])
+    && request.resource.data.appId is string
+    && request.resource.data.platform in ['android','web']
+    && id == request.resource.data.appId + '_' + request.resource.data.platform
+    && request.resource.data.revision is int
+    && request.resource.data.revision > 0
+    && request.resource.data.config is map
+    && exists(/databases/$(database)/documents/apps/$(request.resource.data.appId));
+  }
   match /{document=**} { allow read, write: if false; }
  }
 }
