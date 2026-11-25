@@ -43,7 +43,18 @@ jobs:
           set -euo pipefail
           base=https://appcore-2026--gateway-poc-ill315eo.web.app
           for file in auth.js app.js gateway-client.mjs config-contract.mjs identity.mjs; do
-            curl -fsS "$base/$file" -o "/tmp/$file"
-            cmp "dashboard/$file" "/tmp/$file"
+            matched=false
+            for attempt in $(seq 1 12); do
+              if curl -fsS --max-time 20 -H 'Cache-Control: no-cache' "$base/$file?revision=${GITHUB_SHA}&attempt=$attempt" -o "/tmp/$file" && cmp -s "dashboard/$file" "/tmp/$file"; then
+                matched=true
+                break
+              fi
+              sleep 5
+            done
+            if [ "$matched" != true ]; then
+              echo "::error::Published asset mismatch: $file"
+              sha256sum "dashboard/$file" "/tmp/$file" || true
+              exit 1
+            fi
           done
           test "$(curl -sS -o /dev/null -w '%{http_code}' https://appcore-poc.dr-karimelshenawy.workers.dev/api/apps/altabloh/website)" = 401
