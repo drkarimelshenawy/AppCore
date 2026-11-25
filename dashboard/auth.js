@@ -145,9 +145,10 @@ window.appcorePublishConfig=async(id,platform,expectedRevision,confirm)=>{
  const {targetFor,publicConfig}=await import('./integration-v1.mjs');
  const target=targetFor(id,platform),ticket=generation;
  return runTransaction(db,async tx=>{
+  const app=await tx.get(doc(db,'apps',id));
   const draft=await tx.get(doc(db,'configDrafts',configId(id,platform)));
   const ref=doc(db,'publicConfigs',target.projectId+'_'+platform),old=await tx.get(ref);
-  if(ticket!==generation||auth.currentUser?.uid!==owner||!draft.exists()||draft.data().revision!==expectedRevision)throw Error('Draft changed');
+  if(ticket!==generation||auth.currentUser?.uid!==owner||!app.exists()||!(app.data().modules??['remote']).includes('remote')||!draft.exists()||draft.data().revision!==expectedRevision)throw Error('Draft changed');
   const config=normalizeConfig(draft.data().config);
   const value=publicConfig({schemaVersion:1,...target,revision:(old.exists()?old.data().revision:0)+1,expiresAt:Date.now()+23*3600000,maintenance:config.maintenance,flags:config.flags},target);
   tx.set(ref,value);return value;
