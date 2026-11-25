@@ -28,8 +28,7 @@ case "$mode" in
   verify) verify ;;
   preview)
     verify
-    command -v firebase >/dev/null || { echo 'Install firebase-tools first' >&2; exit 1; }
-    firebase hosting:channel:deploy appcore-local --expires 7d --project appcore-2026 --non-interactive
+    npx --yes firebase-tools@14.27.0 hosting:channel:deploy gateway-poc --expires 7d --project appcore-2026 --non-interactive
     ;;
   production)
     echo 'Production deployment requires a separate explicit approval and reviewed release procedure.' >&2
