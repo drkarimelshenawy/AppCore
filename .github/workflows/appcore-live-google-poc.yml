@@ -1,9 +1,6 @@
 name: AppCore live Google proof
 on:
   workflow_dispatch:
-  push:
-    branches: [feat/appcore-command-center]
-    paths: ['.github/workflows/appcore-live-google-poc.yml']
 permissions:
   contents: read
   id-token: write

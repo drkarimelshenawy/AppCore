@@ -1,8 +1,5 @@
 name: AppCore gateway preview
 on:
-  push:
-    branches: [feat/appcore-command-center]
-    paths: ['.github/workflows/appcore-gateway-preview.yml']
   workflow_dispatch:
 permissions:
   contents: read

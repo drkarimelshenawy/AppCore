@@ -1,0 +1,49 @@
+name: AppCore consolidated deployment
+on:
+  push:
+    branches: [feat/appcore-command-center]
+    paths:
+      - 'dashboard/**'
+      - 'server/**'
+      - 'firestore.rules'
+      - 'firebase.json'
+      - '.github/workflows/appcore-consolidated.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: appcore-consolidated
+  cancel-in-progress: false
+jobs:
+  verify-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify code
+        run: |
+          node --test server/google-*.test.js
+          node --input-type=module --check < dashboard/auth.js
+          node --check dashboard/app.js
+          node --check server/worker-poc.js
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: projects/316863421809/locations/global/workloadIdentityPools/appcore-github/providers/github
+          service_account: appcore-deploy@appcore-2026.iam.gserviceaccount.com
+      - name: Deploy Firestore rules
+        run: npx --yes firebase-tools@14 deploy --only firestore:rules --project appcore-2026 --non-interactive
+      - name: Deploy dashboard preview
+        run: npx --yes firebase-tools@14 hosting:channel:deploy gateway-poc --expires 7d --project appcore-2026 --non-interactive
+      - name: Verify published assets
+        run: |
+          set -euo pipefail
+          base=https://appcore-2026--gateway-poc-ill315eo.web.app
+          for file in auth.js app.js gateway-client.mjs config-contract.mjs; do
+            curl -fsS "$base/$file" -o "/tmp/$file"
+            cmp "dashboard/$file" "/tmp/$file"
+          done
+          test "$(curl -sS -o /dev/null -w '%{http_code}' https://appcore-poc.dr-karimelshenawy.workers.dev/api/apps/altabloh/website)" = 401
