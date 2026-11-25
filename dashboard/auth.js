@@ -1,3 +1,4 @@
+import {identityMetadata,canonicalProjectId,storageIdFor} from './identity.mjs';
 import {normalizeConfig,configId} from './config-contract.mjs';
 import {createGatewayClient} from './gateway-client.mjs';
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
@@ -16,8 +17,9 @@ const allowedModules = new Set(['releases','notifications','analytics','crashes'
 window.appcoreCreateApp = async (id,name) => {
  if (!ready || auth.currentUser?.uid !== owner) throw new Error('Unauthorized');
  if (!/^[a-z0-9][a-z0-9-]{1,49}$/.test(id) || typeof name !== 'string' || !name.trim() || name.length>100) throw new Error('Invalid app');
+ if (canonicalProjectId(id)!==id || ['exmore','altabloh','appcore'].includes(id)) throw new Error('Reserved project identity');
  const ticket=generation;
- await runTransaction(db,async tx=>{const ref=doc(db,'apps',id);if((await tx.get(ref)).exists()) throw new Error('App already exists');tx.set(ref,{name:name.trim(),connected:false,modules:[],createdAt:serverTimestamp()});});
+ await runTransaction(db,async tx=>{const ref=doc(db,'apps',id);if((await tx.get(ref)).exists()) throw new Error('App already exists');tx.set(ref,{...identityMetadata(id),name:name.trim(),connected:false,modules:[],createdAt:serverTimestamp()});});
  if(ticket===generation) await connect(auth.currentUser,ticket);
 };
 window.appcoreSaveModules = async (id, modules) => {
@@ -35,14 +37,22 @@ async function connect(user, ticket) {
  const missing=[["exmore","ExMore"],["3al-tabloh","ع التابلوه"]].filter(([id])=>!snapshot.docs.some(d=>d.id===id));
  for(const [id,name] of missing){
   if(ticket!==generation)return;
-  await runTransaction(db,async tx=>{const target=doc(ref,id);if(!(await tx.get(target)).exists())tx.set(target,{name,connected:false,createdAt:serverTimestamp()});});
+  await runTransaction(db,async tx=>{const target=doc(ref,id);if(!(await tx.get(target)).exists())tx.set(target,{...identityMetadata(id),name,connected:false,createdAt:serverTimestamp()});});
  }
  if(missing.length)snapshot=await getDocs(ref);
+ for(const d of snapshot.docs){
+  if(ticket!==generation)return;
+  const meta=identityMetadata(d.id);
+  if(Object.entries(meta).some(([k,v])=>d.data()[k]!==v)){
+   await runTransaction(db,async tx=>{const current=await tx.get(d.ref);if(ticket!==generation||!current.exists())throw Error('Session or app unavailable');tx.update(d.ref,meta);});
+  }
+ }
+ snapshot=await getDocs(ref);
  if(ticket !== generation) return;
  ready = true;
  document.querySelector("#notice").textContent = "متصل بقاعدة البيانات — نشر التحديثات وإرسال الإشعارات غير مفعّلين بعد.";
  status.textContent = "تم التحقق من صلاحيات الإدارة والاتصال بقاعدة البيانات.";
- window.dispatchEvent(new CustomEvent("appcore-data",{detail:{connected:true,apps:snapshot.docs.map(d=>({...d.data(),id:d.id}))}}));
+ window.dispatchEvent(new CustomEvent("appcore-data",{detail:{connected:true,apps:snapshot.docs.map(d=>({...d.data(),...identityMetadata(d.id),id:d.id}))}}));
 }
 
 const button = document.querySelector("#login"), status = document.querySelector("#auth-status");
