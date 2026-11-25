@@ -3,10 +3,10 @@ import {createGatewayClient} from './gateway-client.mjs';
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
 const app = initializeApp({apiKey:"AIzaSyBWiaz4dP6aaJFlFxD7mj3J3CPaFaYJyM0",authDomain:"appcore-2026.web.app",projectId:"appcore-2026",storageBucket:"appcore-2026.firebasestorage.app",messagingSenderId:"316863421809",appId:"1:316863421809:web:a57802628c500a9a4f2ad0"});
-import { getFirestore, collection, getDocs, doc, setDoc, serverTimestamp, runTransaction } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+import { getFirestore, collection, getDocs, doc, setDoc, serverTimestamp, runTransaction, query, where, orderBy, limit, documentId } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
 import {getFunctions,httpsCallable} from "https://www.gstatic.com/firebasejs/11.10.0/firebase-functions.js";
 const functions=getFunctions(app);
-window.appcoreCall=async(name,data)=>{if(!ready||auth.currentUser?.uid!==owner)throw new Error("Unauthorized");return (await httpsCallable(functions,name)(data)).data;};
+window.appcoreCall=async(name,data)=>appcoreOperations(name,data);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const owner = "bnPCGBPKIcT0zbMlOcd6Z6ttGr22";
@@ -102,3 +102,25 @@ window.appcoreConfigDraft=async(id,platform,input,revision)=>{
  const config=normalizeConfig(input);
  return runTransaction(db,async tx=>{const app=await tx.get(doc(db,'apps',id)),old=await tx.get(ref);if(ticket!==generation||!ready||auth.currentUser?.uid!==owner||!app.exists())throw Error('Session or app unavailable');const current=old.exists()?old.data().revision:0;if(current!==revision)throw Error('Revision conflict');tx.set(ref,{appId:id,platform,revision:current+1,config,updatedAt:serverTimestamp()});return {revision:current+1,config};});
 };
+
+async function appcoreOperations(name,data){
+ const user=auth.currentUser,ticket=generation,id=data?.appId;
+ if(!ready||user?.uid!==owner||!/^[a-z0-9][a-z0-9-]{1,49}$/.test(id))throw Error('Unauthorized or invalid app');
+ const app=await runTransaction(db,tx=>tx.get(doc(db,'apps',id)));
+ if(!app.exists()||ticket!==generation)throw Error('App unavailable');
+ const defaults=['releases','notifications','analytics','crashes','remote','alerts',...(id==='3al-tabloh'?['web','content','database']:[])];
+ const modules=app.data().modules??defaults;
+ const kind=({getAnalyticsSummary:'analytics',getCrashSummary:'crashes',getAdminAlerts:'alerts',acknowledgeAdminAlert:'alerts',checkWebsite:'web',listManagedDrafts:data.kind,saveManagedDraft:data.kind})[name];
+ if(name!=='getAuditLog'&&(!kind||!modules.includes(kind)))throw Error('Service disabled or not deployed');
+ const rows=async q=>(await getDocs(q)).docs.map(d=>({id:d.id,...d.data()}));
+ let result;
+ if(name==='getAnalyticsSummary'){const end=new Date(),start=new Date(end.getTime()-29*86400000);const items=await rows(query(collection(db,'analyticsDaily',id,'days'),where(documentId(),'>=',start.toISOString().slice(0,10)),where(documentId(),'<=',end.toISOString().slice(0,10)),orderBy(documentId()),limit(30)));result={status:items.length?'available':'no-data',rows:items};}
+ else if(name==='getCrashSummary'){const items=await rows(query(collection(db,'crashSummaries',id,'issues'),orderBy('lastSeen','desc'),limit(100)));result={status:items.length?'available':'no-data',issues:items};}
+ else if(name==='getAuditLog')result={entries:await rows(query(collection(db,'auditLogs'),where('appId','==',id),limit(100)))};
+ else if(name==='getAdminAlerts')result={alerts:await rows(query(collection(db,'adminAlerts',id,'items'),orderBy('createdAt','desc'),limit(100)))};
+ else if(name==='acknowledgeAdminAlert'){if(!/^[A-Za-z0-9_-]{1,100}$/.test(data.alertId))throw Error('Invalid alert');await runTransaction(db,async tx=>{const ref=doc(db,'adminAlerts',id,'items',data.alertId),old=await tx.get(ref);if(!old.exists()||ticket!==generation)throw Error('Unavailable');if(!old.data().acknowledged)tx.update(ref,{acknowledged:true,acknowledgedAt:serverTimestamp()});});result={acknowledged:true};}
+ else if(name==='checkWebsite'){if(id!=='3al-tabloh')throw Error('Website not configured');const token=await user.getIdToken();if(ticket!==generation)throw Error('Session changed');const response=await fetch('https://appcore-poc.dr-karimelshenawy.workers.dev/api/apps/altabloh/website',{headers:{Authorization:'Bearer '+token},redirect:'error',cache:'no-store'});if(!response.ok)throw Error('Gateway HTTP '+response.status);result=await response.json();}
+ else if(['listManagedDrafts','saveManagedDraft'].includes(name)){if(id!=='3al-tabloh'||!['content','database'].includes(data.kind))throw Error('Unsupported service');const col=collection(db,'managedDrafts',id,data.kind);if(name==='listManagedDrafts')result={items:await rows(query(col,orderBy('updatedAt','desc'),limit(100)))};else{const {id:key,title,body,expectedRevision}=data;if(!/^[a-z0-9][a-z0-9_-]{0,79}$/.test(key)||typeof title!=='string'||!title.trim()||title.length>200||typeof body!=='string'||body.length>30000||!Number.isSafeInteger(expectedRevision)||expectedRevision<0)throw Error('Invalid draft');if(data.kind==='database'){const c=JSON.parse(body);if(!c||!['vehicle','maintenance'].includes(c.type)||typeof c.source!=='string'||!c.source.trim()||!['verified','estimated','unverified'].includes(c.verification))throw Error('Invalid catalog');}result=await runTransaction(db,async tx=>{const ref=doc(col,key),old=await tx.get(ref);if(ticket!==generation||(old.exists()?old.data().revision:0)!==expectedRevision)throw Error('Revision conflict');tx.set(ref,{title:title.trim(),body,revision:expectedRevision+1,status:'draft',updatedAt:serverTimestamp()});return {revision:expectedRevision+1,status:'draft'};});}}
+ else throw Error('Operation not deployed');
+ if(ticket!==generation||auth.currentUser!==user)throw Error('Session changed');return result;
+}

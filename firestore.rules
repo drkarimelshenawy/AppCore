@@ -27,6 +27,17 @@ service cloud.firestore {
     && request.resource.data.config is map
     && exists(/databases/$(database)/documents/apps/$(request.resource.data.appId));
   }
+  match /analyticsDaily/{appId}/days/{day} { allow read: if owner(); }
+  match /crashSummaries/{appId}/issues/{issue} { allow read: if owner(); }
+  match /auditLogs/{id} { allow read: if owner(); }
+  match /adminAlerts/{appId}/items/{id} {
+   allow read: if owner();
+   allow update: if owner() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['acknowledged','acknowledgedAt']) && request.resource.data.acknowledged == true && request.resource.data.acknowledgedAt == request.time;
+  }
+  match /managedDrafts/{appId}/{kind}/{id} {
+   allow read: if owner() && appId == '3al-tabloh' && kind in ['content','database'];
+   allow create, update: if owner() && appId == '3al-tabloh' && kind in ['content','database'] && request.resource.data.keys().hasOnly(['title','body','revision','status','updatedAt']) && request.resource.data.status == 'draft' && request.resource.data.title is string && request.resource.data.title.size() <= 200 && request.resource.data.body is string && request.resource.data.body.size() <= 30000 && request.resource.data.revision is int && request.resource.data.revision > 0;
+  }
   match /{document=**} { allow read, write: if false; }
  }
 }
