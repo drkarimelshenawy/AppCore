@@ -24,7 +24,7 @@ export default {
   const match=/^\/api\/apps\/(exmore|altabloh)$/.exec(path);
   if(match){
    const origin=request.headers.get('Origin');
-   const allowed=origin==='https://appcore-2026.web.app'||origin==='https://appcore-2026.firebaseapp.com';
+   const allowed=origin==='https://appcore-2026.web.app'||origin==='https://appcore-2026.firebaseapp.com'||origin==='https://appcore-2026--gateway-poc-ill315eo.web.app';
    const headers=allowed?{'Access-Control-Allow-Origin':origin,'Access-Control-Allow-Methods':'GET, OPTIONS','Access-Control-Allow-Headers':'Authorization','Vary':'Origin'}:{};
    if(origin&&!allowed)return new Response(null,{status:403});
    if(request.method==='OPTIONS')return new Response(null,{status:204,headers});
