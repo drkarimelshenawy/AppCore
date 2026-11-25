@@ -1,3 +1,5 @@
+import {createOwnerFirestore} from './owner-firestore.js';
+const readApp=createOwnerFirestore({projectId:'appcore-2026'});
 // Isolated network diagnostics. No credentials, writes or notification delivery.
 const endpoints=[
  ['firestore','https://firestore.googleapis.com/v1/projects/appcore-2026/databases/(default)/documents/appcore_poc/connectivity','GET'],
@@ -19,6 +21,8 @@ async function run(){return Promise.all(endpoints.map(probe));}
 export default {
  async fetch(request,env){
   const path=new URL(request.url).pathname;
+  const match=/^\/api\/apps\/(exmore|altabloh)$/.exec(path);
+  if(request.method==='GET'&&match)return readApp(request,match[1]);
   if(request.method!=='GET'||path!=='/health')return new Response('Not found',{status:404});
   return Response.json({service:'appcore-poc',status:'ok',secretBinding:env.POC_TEST_SECRET==='synthetic-test-only-not-a-credential'},{headers:{'Cache-Control':'no-store'}});
  },
