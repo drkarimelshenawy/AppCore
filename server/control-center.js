@@ -1,4 +1,4 @@
-import {canonicalProjectId} from '../dashboard/identity.mjs';
+import {canonicalProjectId,storageIdFor} from '../dashboard/identity.mjs';
 // Shared read-only control-center contract; authentication is supplied by the host.
 export const APP_IDS=Object.freeze(['exmore','altabloh']);
 export const PLATFORMS=Object.freeze(['android','web']);
@@ -13,7 +13,7 @@ export function createControlCenter({google,authorize}){
  async readApp(request,appId,platform){
   const target=validateTarget(appId,platform);
   if(await authorize(request)!==true)throw Object.assign(new Error('Forbidden'),{status:403});
-  return {target,document:await google.getDocument('apps',target.appId)};
+  return {target,document:await google.getDocument('apps',storageIdFor(target.appId))};
  },
  async validateNotification(request,appId,title,body){
   appId=canonicalProjectId(appId);

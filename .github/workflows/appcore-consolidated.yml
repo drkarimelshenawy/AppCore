@@ -42,7 +42,7 @@ jobs:
         run: |
           set -euo pipefail
           base=https://appcore-2026--gateway-poc-ill315eo.web.app
-          for file in auth.js app.js gateway-client.mjs config-contract.mjs; do
+          for file in auth.js app.js gateway-client.mjs config-contract.mjs identity.mjs; do
             curl -fsS "$base/$file" -o "/tmp/$file"
             cmp "dashboard/$file" "/tmp/$file"
           done
