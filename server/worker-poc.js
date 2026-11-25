@@ -1,23 +1,26 @@
-// Isolated proof of connectivity; never accepts credentials or sends notifications.
+// Isolated network diagnostics. No credentials, writes or notification delivery.
+const endpoints=[
+ ['firestore','https://firestore.googleapis.com/v1/projects/appcore-2026/databases/(default)/documents/appcore_poc/connectivity','GET'],
+ ['fcm','https://fcm.googleapis.com/v1/projects/appcore-2026/messages:send','POST'],
+ ['sts','https://sts.googleapis.com/v1/token','POST']
+];
+async function probe([service,url,method]){
+ const controller=new AbortController();
+ const timer=setTimeout(()=>controller.abort(),8000);
+ try{
+  const response=await fetch(url,{method,redirect:'manual',signal:controller.signal,...(method==='POST'?{headers:{'Content-Type':'application/json'},body:'{}'}:{})});
+  const status=response.status;
+  await response.body?.cancel();
+  return {service,status,reachable:true};
+ }catch(e){return {service,reachable:false,error:e?.name==='AbortError'?'timeout':String(e?.name||'Error')};}
+ finally{clearTimeout(timer);}
+}
+async function run(){return Promise.all(endpoints.map(probe));}
 export default {
- async fetch(request, env) {
-  const url = new URL(request.url);
-  if (request.method !== 'GET' || url.pathname !== '/health') return new Response('Not found',{status:404});
+ async fetch(request,env){
+  const path=new URL(request.url).pathname;
+  if(request.method!=='GET'||path!=='/health')return new Response('Not found',{status:404});
   return Response.json({service:'appcore-poc',status:'ok',secretBinding:env.POC_TEST_SECRET==='synthetic-test-only-not-a-credential'},{headers:{'Cache-Control':'no-store'}});
  },
- async scheduled(controller, env) {
-  const endpoints = [
-   ['firestore','https://firestore.googleapis.com/v1/projects/appcore-2026/databases/(default)/documents/apps/exmore'],
-   ['fcm','https://fcm.googleapis.com/v1/projects/appcore-2026/messages:send']
-  ];
-  for (const [service,url] of endpoints) {
-   try {
-    const response=await fetch(url,{method:'GET',redirect:'error',signal:AbortSignal.timeout(5000)});
-    console.log(JSON.stringify({event:'google-connectivity',service,status:response.status}));
-    await response.body?.cancel();
-   } catch {
-    console.log(JSON.stringify({event:'google-connectivity',service,status:'unreachable'}));
-   }
-  }
- }
+ async scheduled(){for(const result of await run())console.log(JSON.stringify({event:'google-connectivity-v2',...result}));}
 };
