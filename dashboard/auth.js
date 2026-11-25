@@ -83,3 +83,20 @@ window.appcoreDrafts = async (id,kind,data,draftId) => {
  if(!ready||auth.currentUser?.uid!==owner) throw new Error("Unauthorized");
  if(draftId){await runTransaction(db,async tx=>{const ref=doc(db,types[kind],draftId);const old=await tx.get(ref);if(!old.exists()||old.data().appId!==id||old.data().status!=="draft")throw new Error("Draft unavailable");tx.update(ref,{...payload,updatedAt:serverTimestamp()});});}else await setDoc(doc(collection(db,types[kind])),{...payload,appId:id,status:"draft",createdAt:serverTimestamp()});
 };
+
+ // Explicit diagnostic: never marks an application connected merely because its document exists.
+window.appcoreCheckGateway=async(id)=>{
+ const user=auth.currentUser,ticket=generation;
+ if(!ready||user?.uid!==owner)throw new Error("Unauthorized");
+ const target=({"exmore":"exmore","3al-tabloh":"altabloh"})[id];
+ if(!target)throw new Error("Unsupported application");
+ const token=await user.getIdToken();
+ if(ticket!==generation||auth.currentUser!==user)throw new Error("Session changed");
+ const response=await fetch("https://appcore-poc.dr-karimelshenawy.workers.dev/api/apps/"+target,{headers:{Authorization:"Bearer "+token},cache:"no-store",redirect:"error",credentials:"omit"});
+ if(ticket!==generation||auth.currentUser!==user)throw new Error("Session changed");
+ if(!response.ok)throw new Error("Gateway HTTP "+response.status);
+ const result=await response.json();
+ if(ticket!==generation||auth.currentUser!==user)throw new Error("Session changed");
+ if(!result.name?.endsWith("/documents/apps/"+id))throw new Error("Unexpected application document");
+ return {ok:true,appId:id};
+};
