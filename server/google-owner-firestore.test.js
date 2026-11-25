@@ -11,7 +11,7 @@ test('forward token only to fixed Google endpoint and disable caching',async()=>
  const read=createOwnerFirestore({projectId:'appcore-2026',fetchImpl:async(url,opts)=>{
  assert.equal(url,'https://firestore.googleapis.com/v1/projects/appcore-2026/databases/(default)/documents/apps/exmore');
  assert.equal(opts.headers.Authorization,'Bearer a.b.c');
- assert.equal(opts.redirect,'error');
+ assert.equal(opts.redirect,'manual');
  return Response.json({fields:{}});
  }});
  const result=await read(req('Bearer a.b.c'),'exmore');
@@ -19,10 +19,10 @@ test('forward token only to fixed Google endpoint and disable caching',async()=>
  assert.equal(result.headers.get('Cache-Control'),'no-store');
 });
 test('preserve permission errors and sanitize upstream failures',async()=>{
- for(const status of [401,403,404,500]){
+ for(const status of [301,302,401,403,404,500]){
  const read=createOwnerFirestore({projectId:'appcore-2026',fetchImpl:async()=>new Response('private upstream detail',{status})});
  const result=await read(req('Bearer a.b.c'),'altabloh');
- assert.equal(result.status,status===500?502:status);
+ assert.equal(result.status,[401,403,404].includes(status)?status:502);
  assert.equal(await result.text(),'');
  }
 });
