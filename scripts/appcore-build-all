@@ -4,13 +4,13 @@ workspace=${APPCORE_WORKSPACE:-$HOME/AppCore-Workspace}
 for project in AppCore ExMore AlTabloh; do
   dir=$workspace/$project
   test -d "$dir/.git" || { echo "Missing repository: $dir" >&2; exit 1; }
-  test -z "$(git -C "$dir" status --porcelain)" || { echo "Uncommitted changes: $dir" >&2; exit 1; }
+  test -z "$(git -C "$dir" status --porcelain --untracked-files=no)" || { echo "Uncommitted changes: $dir" >&2; exit 1; }
 done
 update() {
   local project=$1 branch=$2 dir=$workspace/$1
   git -C "$dir" fetch origin "$branch"
   test "$(git -C "$dir" branch --show-current)" = "$branch" || { echo "Wrong branch: $dir" >&2; exit 1; }
-  git -C "$dir" merge --ff-only "origin/$branch"
+  git -C "$dir" merge --ff-only FETCH_HEAD
   git -C "$dir" rev-parse HEAD
 }
 update AppCore feat/appcore-command-center
