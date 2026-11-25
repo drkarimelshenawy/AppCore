@@ -38,6 +38,20 @@ service cloud.firestore {
    allow read: if owner() && appId == '3al-tabloh' && kind in ['content','database'];
    allow create, update: if owner() && appId == '3al-tabloh' && kind in ['content','database'] && request.resource.data.keys().hasOnly(['title','body','revision','status','updatedAt']) && request.resource.data.status == 'draft' && request.resource.data.title is string && request.resource.data.title.size() <= 200 && request.resource.data.body is string && request.resource.data.body.size() <= 30000 && request.resource.data.revision is int && request.resource.data.revision > 0;
   }
+  match /publishedReleases/{id} {
+   allow read: if owner();
+   allow create, update: if owner()
+    && request.resource.data.keys().hasOnly(['appId','version','code','url','notes','mandatory','publishedAt'])
+    && request.resource.data.appId == id
+    && request.resource.data.code is int && request.resource.data.code > 0
+    && request.resource.data.code <= 2100000000
+    && request.resource.data.version is string
+    && request.resource.data.url is string
+    && request.resource.data.url.matches('https://.*')
+    && request.resource.data.mandatory == false
+    && request.resource.data.publishedAt == request.time
+    && (!exists(/databases/$(database)/documents/publishedReleases/$(id)) || request.resource.data.code > resource.data.code);
+  }
   match /{document=**} { allow read, write: if false; }
  }
 }

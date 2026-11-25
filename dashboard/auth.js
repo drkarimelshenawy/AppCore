@@ -110,6 +110,10 @@ async function appcoreOperations(name,data){
  if(!app.exists()||ticket!==generation)throw Error('App unavailable');
  const defaults=['releases','notifications','analytics','crashes','remote','alerts',...(id==='3al-tabloh'?['web','content','database']:[])];
  const modules=app.data().modules??defaults;
+ if(name==='publishRelease'){
+  if(data.confirm!==true||!/^[A-Za-z0-9]{20}$/.test(data.draftId)||!(app.data().modules??defaults).includes('releases'))throw Error('Invalid publication');
+  return runTransaction(db,async tx=>{const draft=await tx.get(doc(db,'releaseDrafts',data.draftId)),latest=await tx.get(doc(db,'publishedReleases',id));if(ticket!==generation||!draft.exists())throw Error('Unavailable');const d=draft.data();if(d.appId!==id||d.status!=='draft'||d.mandatory===true||!Number.isSafeInteger(d.code)||d.code<1||d.code>2100000000||typeof d.version!=='string'||!d.version.trim()||d.version.length>50||(latest.exists()&&latest.data().code>=d.code))throw Error('Invalid or stale release');const url=new URL(d.url);if(url.protocol!=='https:'||url.username||url.password)throw Error('Invalid URL');tx.set(doc(db,'publishedReleases',id),{appId:id,version:d.version,code:d.code,url:url.href,notes:String(d.notes||'').slice(0,4000),mandatory:false,publishedAt:serverTimestamp()});return {published:true,code:d.code};});
+ }
  const kind=({getAnalyticsSummary:'analytics',getCrashSummary:'crashes',getAdminAlerts:'alerts',acknowledgeAdminAlert:'alerts',checkWebsite:'web',listManagedDrafts:data.kind,saveManagedDraft:data.kind})[name];
  if(name!=='getAuditLog'&&(!kind||!modules.includes(kind)))throw Error('Service disabled or not deployed');
  const rows=async q=>(await getDocs(q)).docs.map(d=>({id:d.id,...d.data()}));
