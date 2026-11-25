@@ -30,13 +30,12 @@ async function connect(user, ticket) {
  const ref = collection(db,"apps");
  let snapshot = await getDocs(ref);
  if (ticket !== generation) return;
- if (snapshot.empty) {
-  for (const [id,name] of [["exmore","ExMore"],["3al-tabloh","ع التابلوه"]]) {
-   if(ticket !== generation) return;
-   await setDoc(doc(ref,id),{name,connected:false,createdAt:serverTimestamp()},{merge:true});
-  }
-  snapshot = await getDocs(ref);
+ const missing=[["exmore","ExMore"],["3al-tabloh","ع التابلوه"]].filter(([id])=>!snapshot.docs.some(d=>d.id===id));
+ for(const [id,name] of missing){
+  if(ticket!==generation)return;
+  await runTransaction(db,async tx=>{const target=doc(ref,id);if(!(await tx.get(target)).exists())tx.set(target,{name,connected:false,createdAt:serverTimestamp()});});
  }
+ if(missing.length)snapshot=await getDocs(ref);
  if(ticket !== generation) return;
  ready = true;
  document.querySelector("#notice").textContent = "متصل بقاعدة البيانات — نشر التحديثات وإرسال الإشعارات غير مفعّلين بعد.";
