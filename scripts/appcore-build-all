@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+workspace=${APPCORE_WORKSPACE:-$HOME/AppCore-Workspace}
+for project in AppCore ExMore AlTabloh; do
+  dir=$workspace/$project
+  test -d "$dir/.git" || { echo "Missing repository: $dir" >&2; exit 1; }
+  test -z "$(git -C "$dir" status --porcelain)" || { echo "Uncommitted changes: $dir" >&2; exit 1; }
+done
+update() {
+  local project=$1 branch=$2 dir=$workspace/$1
+  git -C "$dir" fetch origin "$branch"
+  test "$(git -C "$dir" branch --show-current)" = "$branch" || { echo "Wrong branch: $dir" >&2; exit 1; }
+  git -C "$dir" merge --ff-only "origin/$branch"
+  git -C "$dir" rev-parse HEAD
+}
+update AppCore feat/appcore-command-center
+update ExMore feat/exmore-official-identity-migration
+update AlTabloh feat/official-identity-migration-20261125
+APPCORE_ROOT="$workspace/AppCore" bash "$workspace/AppCore/scripts/appcore-deploy" verify
+test -x "$HOME/bin/exmore-build" || { echo 'Missing ~/bin/exmore-build' >&2; exit 1; }
+test -x "$HOME/bin/altabloh-build" || { echo 'Missing ~/bin/altabloh-build' >&2; exit 1; }
+(cd "$workspace/ExMore" && "$HOME/bin/exmore-build")
+(cd "$workspace/AlTabloh" && "$HOME/bin/altabloh-build")
+echo 'Inspect APK signing certificates and version codes using apksigner verify --print-certs <apk> and aapt dump badging <apk>.'
