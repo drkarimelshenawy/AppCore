@@ -11,7 +11,7 @@ test("Firestore uses fixed Google endpoint and bearer authorization",async()=>{
  await api.getDocument("apps","exmore");
  assert.equal(calls[0].url,"https://firestore.googleapis.com/v1/projects/appcore-2026/databases/(default)/documents/apps/exmore");
  assert.equal(calls[0].options.headers.Authorization,"Bearer synthetic");
- assert.equal(calls[0].options.redirect,"error");
+ assert.equal(calls[0].options.redirect,"manual");
  assert.throws(()=>api.getDocument("apps","../secret"));
 });
 test("FCM validation cannot send a real notification",async()=>{

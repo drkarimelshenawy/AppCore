@@ -1,4 +1,4 @@
-import test from 'node:test';import assert from 'node:assert/strict';import {createGatewayClient} from './gateway-client.mjs';
+import test from 'node:test';import assert from 'node:assert/strict';import {createGatewayClient} from '../dashboard/gateway-client.mjs';
 test('maps existing app ID and uses no cache',async()=>{const c=createGatewayClient({baseUrl:'https://example.test',getToken:async()=>'test',fetchImpl:async(url,o)=>{assert.equal(url,'https://example.test/api/apps/altabloh');assert.equal(o.cache,'no-store');assert.equal(o.redirect,'error');return Response.json({name:'projects/p/documents/apps/3al-tabloh'});}});await c.readApp('3al-tabloh');});
 test('rejects unknown apps before token access',async()=>{const c=createGatewayClient({baseUrl:'https://example.test',getToken:()=>{throw Error('unexpected');}});await assert.rejects(c.readApp('constructor'),/Unsupported/);});
 test('rejects wrong document',async()=>{const c=createGatewayClient({baseUrl:'https://example.test',getToken:async()=>'test',fetchImpl:async()=>Response.json({name:'wrong'})});await assert.rejects(c.readApp('exmore'),/Unexpected/);});

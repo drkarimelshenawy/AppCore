@@ -1,8 +1,8 @@
-export function createGoogleRest({projectId, credentials, fetchImpl=fetch}) {
+export function createGoogleRest({projectId, credentials, fetchImpl=(...args)=>globalThis.fetch(...args)}) {
   if (!/^[a-z][a-z0-9-]{4,29}$/.test(projectId)) throw new Error("Invalid project ID");
   async function request(url, method, body) {
     const token=await credentials.getAccessToken();
-    const response=await fetchImpl(url,{method,redirect:"error",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},...(body===undefined?{}:{body:JSON.stringify(body)})});
+    const response=await fetchImpl(url,{method,redirect:"manual",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},...(body===undefined?{}:{body:JSON.stringify(body)})});
     if(!response.ok) throw Object.assign(new Error("Google API request failed"),{status:response.status});
     return response.json();
   }

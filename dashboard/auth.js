@@ -1,3 +1,4 @@
+import {createGatewayClient} from './gateway-client.mjs';
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
 const app = initializeApp({apiKey:"AIzaSyBWiaz4dP6aaJFlFxD7mj3J3CPaFaYJyM0",authDomain:"appcore-2026.web.app",projectId:"appcore-2026",storageBucket:"appcore-2026.firebasestorage.app",messagingSenderId:"316863421809",appId:"1:316863421809:web:a57802628c500a9a4f2ad0"});
@@ -87,15 +88,8 @@ window.appcoreDrafts = async (id,kind,data,draftId) => {
 window.appcoreCheckGateway=async(id)=>{
  const user=auth.currentUser,ticket=generation;
  if(!ready||user?.uid!==owner)throw new Error("Unauthorized");
- const target=({"exmore":"exmore","3al-tabloh":"altabloh"})[id];
- if(!target)throw new Error("Unsupported application");
- const token=await user.getIdToken();
+ const client=createGatewayClient({baseUrl:"https://appcore-poc.dr-karimelshenawy.workers.dev",getToken:async()=>{const token=await user.getIdToken();if(ticket!==generation||auth.currentUser!==user)throw new Error("Session changed");return token;}});
+ await client.readApp(id);
  if(ticket!==generation||auth.currentUser!==user)throw new Error("Session changed");
- const response=await fetch("https://appcore-poc.dr-karimelshenawy.workers.dev/api/apps/"+target,{headers:{Authorization:"Bearer "+token},cache:"no-store",redirect:"error",credentials:"omit"});
- if(ticket!==generation||auth.currentUser!==user)throw new Error("Session changed");
- if(!response.ok)throw new Error("Gateway HTTP "+response.status);
- const result=await response.json();
- if(ticket!==generation||auth.currentUser!==user)throw new Error("Session changed");
- if(!result.name?.endsWith("/documents/apps/"+id))throw new Error("Unexpected application document");
  return {ok:true,appId:id};
 };
