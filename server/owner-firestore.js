@@ -7,7 +7,7 @@ export function createOwnerFirestore({projectId,fetchImpl=fetch}){
   const auth=request.headers.get('Authorization')||'';
   if(!/^Bearer [A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(auth)||auth.length>8192)return new Response(null,{status:401});
   try{
-   const result=await fetchImpl(base+appId,{headers:{Authorization:auth},redirect:'error'});
+   const result=await fetchImpl(base+(appId==='altabloh'?'3al-tabloh':appId),{headers:{Authorization:auth},redirect:'error'});
    if(!result.ok)return new Response(null,{status:[401,403,404].includes(result.status)?result.status:502});
    return Response.json(await result.json(),{headers:{'Cache-Control':'no-store'}});
   }catch{return new Response(null,{status:502});}
