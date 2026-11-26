@@ -317,7 +317,8 @@ function healthHistoryPanel(){
  async function act(fn){save.disabled=load.disabled=true;try{await fn();await refresh()}catch(e){out.textContent=e.message}finally{save.disabled=load.disabled=false}}
  save.onclick=()=>act(async()=>{const f=file.files[0];if(!f||f.size>16384)throw Error('Invalid report');await window.appcoreHealthRuns('save',JSON.parse(await f.text()))});
  load.onclick=()=>act(async()=>{});
- panel.append(file,save,load,out);return panel;
+ const pilot=el('button','حالة الأجهزة المرتبطة');const summary=el('p','');pilot.onclick=async()=>{pilot.disabled=true;try{summary.textContent=(await window.appcoreTitanSummary()).map(v=>v.id+': '+v.active+' active / '+v.sampled+' sampled / '+v.pending+' pending').join(' | ')}catch(e){summary.textContent=e.message}finally{pilot.disabled=false}};
+ panel.append(file,save,load,out,pilot,summary);return panel;
 }
 
 function pilotPairPanel(a){

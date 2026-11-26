@@ -420,3 +420,5 @@ window.appcoreOmegaRenew=async(id,platform)=>{
   tx.set(ref,value);tx.set(doc(collection(db,'controlAudit')),{appId:id,action:'config.publish',createdAt:serverTimestamp()});return value.revision;
  });
 };
+
+window.appcoreTitanSummary=async()=>{const user=auth.currentUser,ticket=generation;if(!ready||user?.uid!==owner)throw Error('Unauthorized');const out=[];for(const id of ['exmore','altabloh']){const snap=await getDocs(query(collection(db,'pairedDevices',id,'items'),orderBy('lastSeen','desc'),limit(100)));if(ticket!==generation||auth.currentUser!==user)throw Error('Session changed');const rows=snap.docs.map(d=>d.data());out.push({id,sampled:rows.length,active:rows.filter(d=>d.versionCode>0&&Date.now()-d.lastSeen.toMillis()<86400000).length,pending:rows.filter(d=>d.versionCode===0).length});}return out;};
