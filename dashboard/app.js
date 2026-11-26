@@ -17,6 +17,7 @@ if (["exmore","3al-tabloh"].includes(a.id))
 if(["exmore","3al-tabloh"].includes(a.id)){
   main.append(bulletinPanel(a));
   main.append(controlAuditPanel(a));
+  main.append(healthHistoryPanel());
 }
 main.append(servicePanel(a,"audit"));}
 else if(key==="logs"){main.append(el("h1","SYSTEM CONSOLE"),card(connected?"[OK] Firestore connection":"[OFFLINE] Firestore not verified","[PENDING] Application integration / Notification gateway"));}
@@ -294,4 +295,24 @@ function controlAuditPanel(a){
   panel.append(load,list);
 
   return panel;
+}
+
+function healthHistoryPanel(){
+ const panel=card('مراقبة الخدمات','استيراد تقرير الفحص وعرض سجل الأعطال');
+ const file=el('input');file.type='file';file.accept='.json,application/json';
+ const save=el('button','حفظ تقرير الفحص');
+ const load=el('button','تحديث سجل الخدمات');
+ const out=el('div');
+ async function refresh(){
+  const rows=await window.appcoreHealthRuns('list');
+  out.replaceChildren();
+  for(const r of rows){
+   out.append(el('h3',(r.createdAt?.toDate?.()?.toLocaleString()||'')+' — '+(r.failed?'تنبيه: '+r.failed+' خدمات متعثرة':'جميع الخدمات سليمة')));
+   for(const v of r.results)out.append(el('p',v.name+' — '+(v.ok?'OK':'FAILED')+' — '+v.latencyMs+' ms'));
+  }
+ }
+ async function act(fn){save.disabled=load.disabled=true;try{await fn();await refresh()}catch(e){out.textContent=e.message}finally{save.disabled=load.disabled=false}}
+ save.onclick=()=>act(async()=>{const f=file.files[0];if(!f||f.size>16384)throw Error('Invalid report');await window.appcoreHealthRuns('save',JSON.parse(await f.text()))});
+ load.onclick=()=>act(async()=>{});
+ panel.append(file,save,load,out);return panel;
 }

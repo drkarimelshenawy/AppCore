@@ -155,6 +155,19 @@ service cloud.firestore {
     allow delete: if false;
   }
 
+  match /healthRuns/{id} {
+    allow read: if owner();
+    allow create: if owner()
+      && request.resource.data.keys().hasAll(['createdAt','results','failed'])
+      && request.resource.data.keys().hasOnly(['createdAt','results','failed'])
+      && request.resource.data.createdAt == request.time
+      && request.resource.data.results is list
+      && request.resource.data.results.size() == 5
+      && request.resource.data.failed is int
+      && request.resource.data.failed >= 0
+      && request.resource.data.failed <= 5;
+    allow update, delete: if false;
+  }
   match /{document=**} { allow read, write: if false; }
  }
 }

@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$HOME/AppCore-Workspace/AppCore"
+OUT="$HOME/storage/downloads/AppCore-Operations"
+mkdir -p "$OUT"
+STAMP=$(date +%Y%m%d-%H%M%S)
+node scripts/appcore-health-local.mjs "$OUT/health-$STAMP.json" || echo 'Health check reports a failure'
+for repo in AppCore todo-shift-android 3al-Tabloh; do
+ gh run list -R "drkarimelshenawy/$repo" --limit 10 --json status,conclusion,headBranch,headSha,url,createdAt > "$OUT/$repo-runs-$STAMP.json" || echo "GitHub lookup failed: $repo"
+done
+echo "Reports: $OUT"

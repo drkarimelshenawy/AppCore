@@ -353,3 +353,21 @@ window.appcoreControlAudit=async(id)=>{
   return snap.docs.map(d=>d.data())
     .filter(d=>d.appId===id);
 };
+
+window.appcoreHealthRuns=async(action,report)=>{
+ const user=auth.currentUser,ticket=generation;
+ if(!ready||user?.uid!==owner)throw Error('Unauthorized');
+ if(action==='save'){
+  const {validateHealth}=await import('./health-contract.mjs');
+  const results=validateHealth(report);
+  if(ticket!==generation||auth.currentUser!==user)throw Error('Session changed');
+  await setDoc(doc(collection(db,'healthRuns')),{
+   createdAt:serverTimestamp(),results,failed:results.filter(r=>!r.ok).length
+  });
+  return;
+ }
+ if(action!=='list')throw Error('Invalid action');
+ const snap=await getDocs(query(collection(db,'healthRuns'),orderBy('createdAt','desc'),limit(30)));
+ if(ticket!==generation||auth.currentUser!==user)throw Error('Session changed');
+ return snap.docs.map(d=>d.data());
+};
