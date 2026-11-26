@@ -13,6 +13,11 @@ if(key==="overview"||key==="apps"){main.append(el("h2","APPLICATIONS","eyebrow")
 else if(apps.some(a=>a.id===key)){const a=apps.find(a=>a.id===key);main.append(el("h1",a.name));if(["exmore","3al-tabloh"].includes(a.id)){const gateway=card("Cloudflare Gateway","اختبار قراءة سجل التطبيق بحساب الإدارة، وليس اتصال أجهزة المستخدمين.");const check=el("button","اختبار الاتصال"),result=el("p","لم يتم الاختبار");result.setAttribute("role","status");check.onclick=async()=>{check.disabled=true;try{await window.appcoreCheckGateway(a.id);result.textContent="نجحت القراءة عبر Cloudflare وFirestore";}catch(e){result.textContent="تعذر الاتصال: "+e.message;}finally{check.disabled=false;}};gateway.append(check,result);main.append(gateway);}const form=el("form",undefined,"card");const inputs=[];for(const [m,label] of Object.entries(modules)){const row=el("label",undefined,"module-option");const input=el("input");input.type="checkbox";input.checked=selected(a).includes(m);inputs.push([m,input]);row.append(input,el("span",label));form.append(row);}const save=el("button","حفظ إعدادات الخدمات");save.type="submit";const status=el("p","التكامل التشغيلي غير متحقق");status.setAttribute("role","status");form.append(save,status);form.onsubmit=async e=>{e.preventDefault();save.disabled=true;try{await window.appcoreSaveModules(a.id,inputs.filter(x=>x[1].checked).map(x=>x[0]));status.textContent="تم الحفظ";}catch(err){status.textContent="تعذر الحفظ: "+(err.code||err.message);}finally{save.disabled=false;}};main.append(form);if(selected(a).includes("remote"))main.append(configDraftPanel(a));for(const kind of ["releases","notifications"])if(selected(a).includes(kind))main.append(draftPanel(a,kind));for(const kind of selected(a).filter(k=>!["releases","notifications","remote"].includes(k)))main.append(servicePanel(a,kind));
 if (["exmore","3al-tabloh"].includes(a.id))
   main.append(deviceRegistryPanel(a));
+
+if(["exmore","3al-tabloh"].includes(a.id)){
+  main.append(bulletinPanel(a));
+  main.append(controlAuditPanel(a));
+}
 main.append(servicePanel(a,"audit"));}
 else if(key==="logs"){main.append(el("h1","SYSTEM CONSOLE"),card(connected?"[OK] Firestore connection":"[OFFLINE] Firestore not verified","[PENDING] Application integration / Notification gateway"));}
 else {main.append(el("h1",key==="settings"?"الإعدادات":"المراقبة"),card("حالة الخدمات","لا توجد بيانات تشغيلية متحققة بعد."));}}
@@ -163,6 +168,130 @@ function deviceRegistryPanel(a) {
   refresh.onclick = () => act(async () => {});
 
   refresh.onclick();
+
+  return panel;
+}
+
+
+// APPCORE_CONTROL_V2
+
+function bulletinPanel(a){
+  const panel=card(
+    "الإعلانات المركزية",
+    "نشر إعلان قابل للقراءة من التطبيق"
+  );
+
+  const title=el("input");
+  title.placeholder="عنوان الإعلان";
+  title.maxLength=100;
+
+  const body=el("textarea");
+  body.placeholder="محتوى الإعلان";
+  body.maxLength=1000;
+
+  const load=el("button","تحميل الإعلان");
+  const publish=el("button","نشر الإعلان");
+  const revoke=el("button","إلغاء الإعلان");
+  const status=el("p","");
+
+  let revision=null,busy=false;
+
+  async function refresh(){
+    const d=await window.appcoreBulletin(a.id,'read');
+
+    revision=d?.revision||0;
+    title.value=d?.title||"";
+    body.value=d?.body||"";
+
+    status.textContent=d?.active
+      ?"إعلان منشور — "+revision
+      :"لا يوجد إعلان نشط";
+  }
+
+  async function act(fn){
+    if(busy)return;
+
+    busy=true;
+    load.disabled=publish.disabled=revoke.disabled=true;
+
+    try{
+      await fn();
+      await refresh();
+    }catch(e){
+      status.textContent=e.message;
+    }finally{
+      busy=false;
+      load.disabled=false;
+      publish.disabled=revoke.disabled=revision===null;
+    }
+  }
+
+  load.onclick=()=>act(async()=>{});
+
+  publish.onclick=()=>{
+    if(!confirm("نشر الإعلان؟"))return;
+
+    return act(()=>window.appcoreBulletin(
+      a.id,'publish',{
+        title:title.value,
+        body:body.value,
+        revision,
+        confirm:true
+      }
+    ));
+  };
+
+  revoke.onclick=()=>{
+    if(!confirm("إلغاء الإعلان المنشور؟"))return;
+
+    return act(()=>window.appcoreBulletin(
+      a.id,'revoke',{revision,confirm:true}
+    ));
+  };
+
+  publish.disabled=revoke.disabled=true;
+
+  panel.append(title,body,load,publish,revoke,status);
+
+  load.onclick();
+
+  return panel;
+}
+
+function controlAuditPanel(a){
+  const panel=card(
+    "سجل عمليات التحكم",
+    "آخر عمليات النشر والإلغاء"
+  );
+
+  const load=el("button","تحديث السجل");
+  const list=el("div");
+
+  load.onclick=async()=>{
+    load.disabled=true;
+
+    try{
+      const rows=await window.appcoreControlAudit(a.id);
+
+      list.replaceChildren();
+
+      if(!rows.length)
+        list.append(el("p","لا توجد عمليات مسجلة"));
+
+      for(const d of rows){
+        list.append(el("p",
+          d.action+" — "+
+          (d.createdAt?.toDate?.()?.toLocaleString()||"")
+        ));
+      }
+    }catch(e){
+      list.textContent=e.message;
+    }finally{
+      load.disabled=false;
+    }
+  };
+
+  panel.append(load,list);
 
   return panel;
 }

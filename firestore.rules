@@ -100,6 +100,61 @@ service cloud.firestore {
       && request.resource.data.lastSeen == request.time;
   }
 
+
+  // APPCORE_CONTROL_V2
+  match /controlAudit/{id} {
+    allow read: if owner();
+
+    allow create: if owner()
+      && request.resource.data.keys().hasAll([
+        'appId','action','createdAt'
+      ])
+      && request.resource.data.keys().hasOnly([
+        'appId','action','createdAt'
+      ])
+      && request.resource.data.appId in [
+        'exmore','3al-tabloh'
+      ]
+      && request.resource.data.action in [
+        'release.publish',
+        'config.publish',
+        'bulletin.publish',
+        'bulletin.revoke'
+      ]
+      && request.resource.data.createdAt == request.time;
+
+    allow update, delete: if false;
+  }
+
+  match /publicBulletins/{appId} {
+    allow get: if appId in ['exmore','3al-tabloh'];
+    allow list: if owner();
+
+    allow create, update: if owner()
+      && appId in ['exmore','3al-tabloh']
+      && request.resource.data.keys().hasAll([
+        'appId','title','body','active','revision','updatedAt'
+      ])
+      && request.resource.data.keys().hasOnly([
+        'appId','title','body','active','revision','updatedAt'
+      ])
+      && request.resource.data.appId == appId
+      && request.resource.data.title is string
+      && request.resource.data.title.size() > 0
+      && request.resource.data.title.size() <= 100
+      && request.resource.data.body is string
+      && request.resource.data.body.size() > 0
+      && request.resource.data.body.size() <= 1000
+      && request.resource.data.active is bool
+      && request.resource.data.revision is int
+      && request.resource.data.revision > 0
+      && (resource == null ||
+          request.resource.data.revision > resource.data.revision)
+      && request.resource.data.updatedAt == request.time;
+
+    allow delete: if false;
+  }
+
   match /{document=**} { allow read, write: if false; }
  }
 }

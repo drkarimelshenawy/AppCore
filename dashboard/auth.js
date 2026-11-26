@@ -122,7 +122,13 @@ async function appcoreOperations(name,data){
  const modules=app.data().modules??defaults;
  if(name==='publishRelease'){
   if(data.confirm!==true||!/^[A-Za-z0-9]{20}$/.test(data.draftId)||!(app.data().modules??defaults).includes('releases'))throw Error('Invalid publication');
-  return runTransaction(db,async tx=>{const draft=await tx.get(doc(db,'releaseDrafts',data.draftId)),latest=await tx.get(doc(db,'publishedReleases',id));if(ticket!==generation||!draft.exists())throw Error('Unavailable');const d=draft.data();if(d.appId!==id||d.status!=='draft'||d.mandatory===true||!Number.isSafeInteger(d.code)||d.code<1||d.code>2100000000||typeof d.version!=='string'||!d.version.trim()||d.version.length>50||(latest.exists()&&latest.data().code>=d.code))throw Error('Invalid or stale release');const url=new URL(d.url);if(url.protocol!=='https:'||url.username||url.password)throw Error('Invalid URL');tx.set(doc(db,'publishedReleases',id),{appId:id,version:d.version,code:d.code,url:url.href,notes:String(d.notes||'').slice(0,4000),mandatory:false,publishedAt:serverTimestamp()});return {published:true,code:d.code};});
+  return runTransaction(db,async tx=>{const draft=await tx.get(doc(db,'releaseDrafts',data.draftId)),latest=await tx.get(doc(db,'publishedReleases',id));if(ticket!==generation||!draft.exists())throw Error('Unavailable');const d=draft.data();if(d.appId!==id||d.status!=='draft'||d.mandatory===true||!Number.isSafeInteger(d.code)||d.code<1||d.code>2100000000||typeof d.version!=='string'||!d.version.trim()||d.version.length>50||(latest.exists()&&latest.data().code>=d.code))throw Error('Invalid or stale release');const url=new URL(d.url);if(url.protocol!=='https:'||url.username||url.password)throw Error('Invalid URL');tx.set(doc(db,'publishedReleases',id),{appId:id,version:d.version,code:d.code,url:url.href,notes:String(d.notes||'').slice(0,4000),mandatory:false,publishedAt:serverTimestamp()});
+tx.set(doc(collection(db,'controlAudit')),{
+  appId:id,
+  action:'release.publish',
+  createdAt:serverTimestamp()
+});
+return {published:true,code:d.code};});
  }
  const kind=({getAnalyticsSummary:'analytics',getCrashSummary:'crashes',getAdminAlerts:'alerts',acknowledgeAdminAlert:'alerts',checkWebsite:'web',listManagedDrafts:data.kind,saveManagedDraft:data.kind})[name];
  if(name!=='getAuditLog'&&(!kind||!modules.includes(kind)))throw Error('Service disabled or not deployed');
@@ -151,7 +157,15 @@ window.appcorePublishConfig=async(id,platform,expectedRevision,confirm)=>{
   if(ticket!==generation||auth.currentUser?.uid!==owner||!app.exists()||!(app.data().modules??['remote']).includes('remote')||!draft.exists()||draft.data().revision!==expectedRevision)throw Error('Draft changed');
   const config=normalizeConfig(draft.data().config);
   const value=publicConfig({schemaVersion:1,...target,revision:(old.exists()?old.data().revision:0)+1,expiresAt:Date.now()+23*3600000,maintenance:config.maintenance,flags:config.flags},target);
-  tx.set(ref,value);return value;
+
+tx.set(ref,value);
+tx.set(doc(collection(db,'controlAudit')),{
+  appId:id,
+  action:'config.publish',
+  createdAt:serverTimestamp()
+});
+return value;
+
  });
 };
 
@@ -240,4 +254,102 @@ window.appcoreDevices = async (id, action, input = {}) => {
       tx.delete(ref);
     }
   });
+};
+
+
+// APPCORE_CONTROL_V2
+
+window.appcoreBulletin = async (id, action, input={}) => {
+  const user=auth.currentUser;
+  const ticket=generation;
+
+  if(!ready || user?.uid!==owner ||
+     !['exmore','3al-tabloh'].includes(id))
+    throw Error('Unauthorized');
+
+  const ref=doc(db,'publicBulletins',id);
+
+  return runTransaction(db,async tx=>{
+    const old=await tx.get(ref);
+    const application=await tx.get(doc(db,'apps',id));
+
+    if(ticket!==generation ||
+       auth.currentUser!==user ||
+       !application.exists())
+      throw Error('Session or app unavailable');
+
+    const previous=old.exists()?old.data():null;
+
+    if(action==='read')return previous;
+
+    if(input.confirm!==true)
+      throw Error('Confirmation required');
+
+    if(!['publish','revoke'].includes(action))
+      throw Error('Invalid action');
+
+    const modules=application.data().modules;
+
+    if(action==='publish' &&
+       Array.isArray(modules) &&
+       !modules.includes('notifications'))
+      throw Error('Notifications disabled');
+
+    if(action==='revoke' && !previous)
+      throw Error('No bulletin');
+
+    if(input.revision!==(previous?.revision||0))
+      throw Error('Revision conflict');
+
+    const title=action==='publish'
+      ?String(input.title||'').trim()
+      :previous.title;
+
+    const body=action==='publish'
+      ?String(input.body||'').trim()
+      :previous.body;
+
+    if(!title || title.length>100 ||
+       !body || body.length>1000)
+      throw Error('Invalid bulletin');
+
+    const value={
+      appId:id,
+      title,
+      body,
+      active:action==='publish',
+      revision:(previous?.revision||0)+1,
+      updatedAt:serverTimestamp()
+    };
+
+    tx.set(ref,value);
+
+    tx.set(doc(collection(db,'controlAudit')),{
+      appId:id,
+      action:'bulletin.'+action,
+      createdAt:serverTimestamp()
+    });
+
+    return {revision:value.revision,active:value.active};
+  });
+};
+
+window.appcoreControlAudit=async(id)=>{
+  const user=auth.currentUser;
+  const ticket=generation;
+
+  if(!ready || user?.uid!==owner)
+    throw Error('Unauthorized');
+
+  const snap=await getDocs(query(
+    collection(db,'controlAudit'),
+    orderBy('createdAt','desc'),
+    limit(100)
+  ));
+
+  if(ticket!==generation || auth.currentUser!==user)
+    throw Error('Session changed');
+
+  return snap.docs.map(d=>d.data())
+    .filter(d=>d.appId===id);
 };
