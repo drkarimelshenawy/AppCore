@@ -391,3 +391,17 @@ window.appcorePairPilot=async(id,action,input={})=>{
  if(action==='revoke'&&input.confirm===true&&/^[a-f0-9]{64}$/.test(input.token))return runTransaction(db,async tx=>{if(ticket!==generation||auth.currentUser!==user)throw Error('Session changed');tx.delete(doc(col,input.token))});
  throw Error('Invalid action');
 };
+
+window.appcoreCatalogPublish=async(kind,key,active,confirmed)=>{
+ const user=auth.currentUser,ticket=generation;
+ if(!ready||user?.uid!==owner||confirmed!==true||!['content','database'].includes(kind)||!/^[a-z0-9][a-z0-9_-]{0,79}$/.test(key)||typeof active!=='boolean')throw Error('Invalid publication');
+ return runTransaction(db,async tx=>{
+  const draft=await tx.get(doc(db,'managedDrafts','3al-tabloh',kind,key));
+  const ref=doc(db,'publicCatalog',kind,'items',key),old=await tx.get(ref);
+  if(ticket!==generation||auth.currentUser!==user)throw Error('Session changed');
+  if(active&&!draft.exists()||!active&&!old.exists())throw Error('Missing record');
+  const d=active?draft.data():old.data();
+  if(active&&kind==='database'){const v=JSON.parse(d.body);if(!['vehicle','maintenance'].includes(v.type)||typeof v.source!=='string'||!v.source.trim()||!['verified','estimated','unverified'].includes(v.verification))throw Error('Invalid catalog')}
+  tx.set(ref,{title:active?d.title:'',body:active?d.body:'',active,revision:(old.exists()?old.data().revision:0)+1,updatedAt:serverTimestamp()});
+ });
+};

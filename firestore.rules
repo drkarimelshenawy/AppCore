@@ -187,6 +187,20 @@ service cloud.firestore {
       && request.resource.data.lastSeen == request.time
       && (resource.data.versionCode == 0 || request.time >= resource.data.lastSeen + duration.value(1,'h'));
   }
+  match /publicCatalog/{kind}/items/{id} {
+    allow get: if kind in ['content','database'];
+    allow list: if owner();
+    allow create, update: if owner() && kind in ['content','database']
+      && id.matches('[a-z0-9][a-z0-9_-]{0,79}')
+      && request.resource.data.keys().hasOnly(['title','body','revision','active','updatedAt'])
+      && request.resource.data.title is string && request.resource.data.title.size() <= 200
+      && request.resource.data.body is string && request.resource.data.body.size() <= 30000
+      && request.resource.data.active is bool
+      && request.resource.data.revision is int && request.resource.data.revision > 0
+      && (resource == null || request.resource.data.revision > resource.data.revision)
+      && request.resource.data.updatedAt == request.time;
+    allow delete: if false;
+  }
   match /{document=**} { allow read, write: if false; }
  }
 }

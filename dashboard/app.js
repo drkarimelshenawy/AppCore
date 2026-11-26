@@ -17,6 +17,7 @@ if (["exmore","3al-tabloh"].includes(a.id))
 if(["exmore","3al-tabloh"].includes(a.id)){
   main.append(bulletinPanel(a));
   main.append(controlAuditPanel(a));
+  if(a.id==="3al-tabloh")main.append(catalogPublishPanel());
   main.append(pilotPairPanel(a));
   main.append(healthHistoryPanel());
 }
@@ -326,4 +327,9 @@ function pilotPairPanel(a){
  create.onclick=()=>act(async()=>{if(!confirm('إنشاء رمز خاص؟'))return;const token=await window.appcorePairPilot(a.id,'create',{platform:platform.value,confirm:true});out.textContent=token});
  load.onclick=()=>act(async()=>{const rows=await window.appcorePairPilot(a.id,'list');out.replaceChildren();for(const r of rows){const line=el('div');line.append(el('p',r.token.slice(0,8)+' — '+r.platform+' — '+r.versionCode+' — '+r.lastSeen?.toDate?.().toLocaleString()));const b=el('button','إلغاء الربط');b.onclick=()=>act(async()=>{if(confirm('إلغاء الربط؟')){await window.appcorePairPilot(a.id,'revoke',{token:r.token,confirm:true});out.textContent='تم الإلغاء'}});line.append(b);out.append(line)}});
  p.append(platform,create,load,out);return p;
+}
+
+function catalogPublishPanel(){
+ const p=card('نشر المحتوى العام','انشر مسودة موجودة بمعرفها؛ المحتوى المنشور عام');const kind=el('select');for(const v of ['content','database']){const o=el('option',v);o.value=v;kind.append(o)}const key=el('input');key.placeholder='Draft ID';const out=el('p');
+ for(const active of [true,false]){const b=el('button',active?'نشر':'إلغاء النشر');b.onclick=async()=>{if(!confirm('تأكيد العملية؟'))return;b.disabled=true;try{await window.appcoreCatalogPublish(kind.value,key.value,active,true);out.textContent='تم حفظ حالة النشر'}catch(e){out.textContent=e.message}finally{b.disabled=false}};p.append(b)}p.append(kind,key,out);return p;
 }
