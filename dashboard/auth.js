@@ -405,3 +405,18 @@ window.appcoreCatalogPublish=async(kind,key,active,confirmed)=>{
   tx.set(ref,{title:active?d.title:'',body:active?d.body:'',active,revision:(old.exists()?old.data().revision:0)+1,updatedAt:serverTimestamp()});
  });
 };
+
+window.appcoreOmegaRenew=async(id,platform)=>{
+ const user=auth.currentUser,ticket=generation;
+ if(!ready||user?.uid!==owner)throw Error('Unauthorized');
+ const {targetFor,publicConfig}=await import('./integration-v1.mjs');
+ const target=targetFor(id,platform);
+ return runTransaction(db,async tx=>{
+  const app=await tx.get(doc(db,'apps',id));
+  const ref=doc(db,'publicConfigs',target.projectId+'_'+platform),old=await tx.get(ref);
+  if(ticket!==generation||auth.currentUser!==user||!app.exists()||!old.exists()||!(app.data().modules??['remote']).includes('remote'))throw Error('Unavailable');
+  const d=old.data();
+  const value=publicConfig({schemaVersion:1,...target,revision:d.revision+1,expiresAt:Date.now()+23*3600000,maintenance:d.maintenance,flags:d.flags},target);
+  tx.set(ref,value);tx.set(doc(collection(db,'controlAudit')),{appId:id,action:'config.publish',createdAt:serverTimestamp()});return value.revision;
+ });
+};

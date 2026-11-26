@@ -17,6 +17,7 @@ if (["exmore","3al-tabloh"].includes(a.id))
 if(["exmore","3al-tabloh"].includes(a.id)){
   main.append(bulletinPanel(a));
   main.append(controlAuditPanel(a));
+  main.append(omegaRenewPanel(a));
   if(a.id==="3al-tabloh")main.append(catalogPublishPanel());
   main.append(pilotPairPanel(a));
   main.append(healthHistoryPanel());
@@ -332,4 +333,10 @@ function pilotPairPanel(a){
 function catalogPublishPanel(){
  const p=card('نشر المحتوى العام','انشر مسودة موجودة بمعرفها؛ المحتوى المنشور عام');const kind=el('select');for(const v of ['content','database']){const o=el('option',v);o.value=v;kind.append(o)}const key=el('input');key.placeholder='Draft ID';const out=el('p');
  for(const active of [true,false]){const b=el('button',active?'نشر':'إلغاء النشر');b.onclick=async()=>{if(!confirm('تأكيد العملية؟'))return;b.disabled=true;try{await window.appcoreCatalogPublish(kind.value,key.value,active,true);out.textContent='تم حفظ حالة النشر'}catch(e){out.textContent=e.message}finally{b.disabled=false}};p.append(b)}p.append(kind,key,out);return p;
+}
+
+function omegaRenewPanel(a){
+ const p=card('تجديد صلاحية الإعدادات','تجديد الإعدادات المنشورة دون تغيير قيمها');
+ const out=el('p');for(const platform of (a.id==='exmore'?['android']:['android','web'])){
+ const b=el('button','Renew '+platform);b.onclick=async()=>{if(!confirm('تجديد الإعدادات الحالية؟'))return;b.disabled=true;try{out.textContent='Revision '+await window.appcoreOmegaRenew(a.id,platform)}catch(e){out.textContent=e.message}finally{b.disabled=false}};p.append(b)}p.append(out);return p;
 }
