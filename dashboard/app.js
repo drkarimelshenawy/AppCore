@@ -17,6 +17,7 @@ if (["exmore","3al-tabloh"].includes(a.id))
 if(["exmore","3al-tabloh"].includes(a.id)){
   main.append(bulletinPanel(a));
   main.append(controlAuditPanel(a));
+  main.append(pilotPairPanel(a));
   main.append(healthHistoryPanel());
 }
 main.append(servicePanel(a,"audit"));}
@@ -315,4 +316,14 @@ function healthHistoryPanel(){
  save.onclick=()=>act(async()=>{const f=file.files[0];if(!f||f.size>16384)throw Error('Invalid report');await window.appcoreHealthRuns('save',JSON.parse(await f.text()))});
  load.onclick=()=>act(async()=>{});
  panel.append(file,save,load,out);return panel;
+}
+
+function pilotPairPanel(a){
+ const p=card('ربط أجهزة الاختبار','رمز خاص لكل جهاز؛ لا تشاركه علنًا');
+ const platform=el('select');for(const v of (a.id==='exmore'?['android']:['android','web'])){const o=el('option',v);o.value=v;platform.append(o)}
+ const create=el('button','إنشاء رمز ربط');const load=el('button','عرض الأجهزة');const out=el('div');
+ async function act(fn){create.disabled=load.disabled=true;try{await fn()}catch(e){out.textContent=e.message}finally{create.disabled=load.disabled=false}}
+ create.onclick=()=>act(async()=>{if(!confirm('إنشاء رمز خاص؟'))return;const token=await window.appcorePairPilot(a.id,'create',{platform:platform.value,confirm:true});out.textContent=token});
+ load.onclick=()=>act(async()=>{const rows=await window.appcorePairPilot(a.id,'list');out.replaceChildren();for(const r of rows){const line=el('div');line.append(el('p',r.token.slice(0,8)+' — '+r.platform+' — '+r.versionCode+' — '+r.lastSeen?.toDate?.().toLocaleString()));const b=el('button','إلغاء الربط');b.onclick=()=>act(async()=>{if(confirm('إلغاء الربط؟')){await window.appcorePairPilot(a.id,'revoke',{token:r.token,confirm:true});out.textContent='تم الإلغاء'}});line.append(b);out.append(line)}});
+ p.append(platform,create,load,out);return p;
 }

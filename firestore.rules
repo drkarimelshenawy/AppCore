@@ -168,6 +168,25 @@ service cloud.firestore {
       && request.resource.data.failed <= 5;
     allow update, delete: if false;
   }
+  // Capability-based, explicitly paired pilot devices. No public reads.
+  match /pairedDevices/{appId}/items/{token} {
+    allow read, delete: if owner();
+    allow create: if owner() && appId in ['exmore','altabloh']
+      && token.matches('[a-f0-9]{64}')
+      && request.resource.data.keys().hasOnly(['platform','versionCode','lastSeen'])
+      && request.resource.data.platform in ['android','web']
+      && (appId != 'exmore' || request.resource.data.platform == 'android')
+      && request.resource.data.versionCode == 0
+      && request.resource.data.lastSeen == request.time;
+    allow update: if appId in ['exmore','altabloh']
+      && token.matches('[a-f0-9]{64}')
+      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['versionCode','lastSeen'])
+      && request.resource.data.versionCode is int
+      && request.resource.data.versionCode > 0
+      && request.resource.data.versionCode <= 2100000000
+      && request.resource.data.lastSeen == request.time
+      && (resource.data.versionCode == 0 || request.time >= resource.data.lastSeen + duration.value(1,'h'));
+  }
   match /{document=**} { allow read, write: if false; }
  }
 }

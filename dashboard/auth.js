@@ -371,3 +371,23 @@ window.appcoreHealthRuns=async(action,report)=>{
  if(ticket!==generation||auth.currentUser!==user)throw Error('Session changed');
  return snap.docs.map(d=>d.data());
 };
+
+window.appcorePairPilot=async(id,action,input={})=>{
+ const user=auth.currentUser,ticket=generation;
+ if(!ready||user?.uid!==owner)throw Error('Unauthorized');
+ const project=canonicalProjectId(id);
+ if(!['exmore','altabloh'].includes(project))throw Error('Invalid app');
+ const col=collection(db,'pairedDevices',project,'items');
+ if(action==='list'){
+  const snap=await getDocs(query(col,orderBy('lastSeen','desc'),limit(100)));
+  if(ticket!==generation||auth.currentUser!==user)throw Error('Session changed');
+  return snap.docs.map(d=>({token:d.id,...d.data()}));
+ }
+ if(action==='create'){
+  if(input.confirm!==true||!['android','web'].includes(input.platform)||(project==='exmore'&&input.platform!=='android'))throw Error('Invalid pairing');
+  const token=Array.from(crypto.getRandomValues(new Uint8Array(32)),x=>x.toString(16).padStart(2,'0')).join('');
+  await setDoc(doc(col,token),{platform:input.platform,versionCode:0,lastSeen:serverTimestamp()});return token;
+ }
+ if(action==='revoke'&&input.confirm===true&&/^[a-f0-9]{64}$/.test(input.token))return runTransaction(db,async tx=>{if(ticket!==generation||auth.currentUser!==user)throw Error('Session changed');tx.delete(doc(col,input.token))});
+ throw Error('Invalid action');
+};
