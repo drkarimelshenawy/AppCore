@@ -1,0 +1,39 @@
+name: AppCore Integration QA
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/appcore-command-center]
+permissions:
+  contents: read
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Server tests
+        run: |
+          npm --prefix server install --no-audit --no-fund
+          npm --prefix server test
+      - name: Functions tests
+        run: |
+          npm --prefix functions install --no-audit --no-fund
+          npm --prefix functions test
+      - name: Firestore and Functions emulator tests
+        run: |
+          npm install --no-save --no-package-lock firebase@11.10.0 @firebase/rules-unit-testing@4
+          npx --yes firebase-tools@14.27.0 emulators:exec --only firestore,functions --project demo-appcore 'node --test tests/*.test.cjs'
+      - name: Live public config smoke test
+        run: |
+          set -e
+          for target in exmore/android altabloh/android altabloh/web; do
+            curl --fail --silent --show-error --max-time 20 "https://appcore-poc.dr-karimelshenawy.workers.dev/api/v1/apps/$target/config" >/dev/null
+            echo "$target OK"
+          done
