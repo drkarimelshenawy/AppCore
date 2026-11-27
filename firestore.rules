@@ -232,6 +232,25 @@ service cloud.firestore {
     allow update: if installation() && validRegistration() && request.time >= resource.data.lastSeen + duration.value(1,'h');
     allow delete: if owner() || installation();
   }
+  // Explicit Web test subscription; tokens are never publicly readable.
+  match /webPushSubscriptions/{uid} {
+   function selfAnonymous(){return request.auth != null && request.auth.uid == uid && request.auth.token.firebase.sign_in_provider == 'anonymous';}
+   function validSubscription(){return request.resource.data.keys().hasAll(['token','updatedAt']) && request.resource.data.keys().hasOnly(['token','updatedAt']) && request.resource.data.token is string && request.resource.data.token.size() >= 20 && request.resource.data.token.size() <= 4096 && request.resource.data.updatedAt == request.time;}
+   allow read: if owner();
+   allow create: if selfAnonymous() && validSubscription();
+   allow update: if selfAnonymous() && validSubscription() && request.time >= resource.data.updatedAt + duration.value(1,'m');
+   allow delete: if owner() || selfAnonymous();
+  }
+  match /webPushJobs/{id} {
+   allow read: if owner();
+   allow create: if owner() && id.matches('[0-9a-f-]{36}') && request.resource.data.keys().hasAll(['uid','title','body','status','createdAt']) && request.resource.data.keys().hasOnly(['uid','title','body','status','createdAt']) && request.resource.data.uid is string && request.resource.data.uid.matches('[A-Za-z0-9_-]{1,128}') && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 100 && request.resource.data.body is string && request.resource.data.body.size() > 0 && request.resource.data.body.size() <= 1000 && request.resource.data.status == 'queued' && request.resource.data.createdAt == request.time;
+   allow update: if owner() && resource.data.status == 'queued' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) && request.resource.data.status == 'cancelled';
+   allow delete: if false;
+  }
+  match /diagnosticSnapshots/{id} {
+   allow read: if owner() && id in ['exmore','altabloh'];
+   allow write: if false; // trusted IAM batch import only
+  }
   match /{document=**} { allow read, write: if false; }
  }
 }

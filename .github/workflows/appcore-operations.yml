@@ -7,14 +7,14 @@ on:
     inputs:
       operation:
         type: choice
-        options: [notify, analytics, health]
+        options: [notify, webnotify, analytics, diagnostics, health, cycle]
         required: true
       notification_id:
-        description: Owner-created queue ID (notify only)
+        description: Owner-created queue ID (notify/webnotify only)
         type: string
         required: false
       confirm:
-        description: Confirm real operation; notify sends to isolated test topic only
+        description: Explicit approval; no automatic notifications
         type: boolean
         default: false
 permissions:
@@ -27,13 +27,13 @@ jobs:
   run:
     if: (github.event_name == 'push' || inputs.confirm == true) && github.repository == 'drkarimelshenawy/AppCore' && github.ref == 'refs/heads/feat/appcore-command-center'
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --test tests/operations.test.mjs
+      - run: node --test tests/operations.test.mjs tests/final-operations.test.mjs
       - name: Validate explicit operation request
         id: request
         env:
@@ -45,9 +45,10 @@ jobs:
           node --input-type=module <<'JS'
           import fs from 'node:fs';
           const v=process.env.EVENT==='push'?JSON.parse(fs.readFileSync('.appcore/operation-request.json','utf8')):{operation:process.env.INPUT_OPERATION,notificationId:process.env.INPUT_ID,confirm:process.env.INPUT_CONFIRM==='true'};
-          if(v.confirm!==true||!['notify','analytics','health'].includes(v.operation))throw Error('Explicit approval required');
-          if(v.operation==='notify'&&!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(v.notificationId??''))throw Error('Invalid notification ID');
-          fs.appendFileSync(process.env.GITHUB_OUTPUT,'operation='+v.operation+'\nnotification_id='+(v.operation==='notify'?v.notificationId:'')+'\n');
+          if(v.confirm!==true||!['notify','webnotify','analytics','diagnostics','health','cycle'].includes(v.operation))throw Error('Explicit approval required');
+          const notification=['notify','webnotify'].includes(v.operation);
+          if(notification&&!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(v.notificationId??''))throw Error('Invalid notification ID');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT,'operation='+v.operation+'\nnotification_id='+(notification?v.notificationId:'')+'\n');
           JS
       - uses: google-github-actions/auth@v3
         id: auth
@@ -58,7 +59,7 @@ jobs:
           export_environment_variables: false
           token_format: access_token
           access_token_scopes: https://www.googleapis.com/auth/cloud-platform,https://www.googleapis.com/auth/analytics.readonly
-      - name: Run explicitly selected operation
+      - name: Run approved operation
         env:
           GOOGLE_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
           OPERATIONS_CONFIRM: 'true'
@@ -68,4 +69,21 @@ jobs:
           GA_EXMORE_STREAM: ${{ vars.GA_EXMORE_STREAM }}
           GA_ALTABLOH_PROPERTY: ${{ vars.GA_ALTABLOH_PROPERTY }}
           GA_ALTABLOH_STREAM: ${{ vars.GA_ALTABLOH_STREAM }}
-        run: node scripts/appcore-operations.mjs "$OPERATION"
+          BQ_LOCATION: ${{ vars.BQ_LOCATION }}
+          BQ_EXMORE_PERF_TABLE: ${{ vars.BQ_EXMORE_PERF_TABLE }}
+          BQ_ALTABLOH_PERF_TABLE: ${{ vars.BQ_ALTABLOH_PERF_TABLE }}
+          AUTO_ANALYTICS: ${{ vars.APPCORE_AUTO_ANALYTICS }}
+          AUTO_DIAGNOSTICS: ${{ vars.APPCORE_AUTO_DIAGNOSTICS }}
+        run: |
+          set -euo pipefail
+          case "$OPERATION" in
+            webnotify|diagnostics) node scripts/appcore-final-operations.mjs "$OPERATION";;
+            health|analytics|notify) node scripts/appcore-operations.mjs "$OPERATION";;
+            cycle)
+              rc=0
+              node scripts/appcore-operations.mjs health || rc=1
+              if [[ "$AUTO_ANALYTICS" == true ]]; then node scripts/appcore-operations.mjs analytics || rc=1; else echo 'Analytics not enabled for cycle'; fi
+              if [[ "$AUTO_DIAGNOSTICS" == true ]]; then node scripts/appcore-final-operations.mjs diagnostics || rc=1; else echo 'Diagnostics not enabled for cycle'; fi
+              exit "$rc";;
+            *) exit 2;;
+          esac

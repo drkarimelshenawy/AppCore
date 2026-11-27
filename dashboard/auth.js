@@ -454,3 +454,13 @@ window.appcoreRegisteredDevices=async(id)=>{
  const rows=snap.docs.map(d=>d.data());
  return {sampled:rows.length,active24h:rows.filter(r=>r.lastSeen?.toMillis?.()>Date.now()-86400000).length,rows:rows.map(r=>({platform:r.platform,versionCode:r.versionCode,lastSeen:r.lastSeen}))};
 };
+
+window.appcoreWebPush=async(action,input={})=>{
+ const user=auth.currentUser,ticket=generation;if(!ready||user?.uid!==owner)throw Error('Unauthorized');
+ if(action==='list'){const snap=await getDocs(query(collection(db,'webPushSubscriptions'),orderBy('updatedAt','desc'),limit(30)));if(ticket!==generation||auth.currentUser!==user)throw Error('Session changed');return snap.docs.map(d=>({id:d.id,updatedAt:d.data().updatedAt}));}
+ if(action==='jobs'){const snap=await getDocs(query(collection(db,'webPushJobs'),orderBy('createdAt','desc'),limit(30)));if(ticket!==generation||auth.currentUser!==user)throw Error('Session changed');return snap.docs.map(d=>({id:d.id,status:d.data().status}));}
+ if(action==='cancel'){if(input.confirm!==true||! /^[a-f0-9-]{36}$/.test(input.id))throw Error('Invalid job');return runTransaction(db,async tx=>{const ref=doc(db,'webPushJobs',input.id),d=await tx.get(ref);if(ticket!==generation||auth.currentUser!==user||!d.exists()||d.data().status!=='queued')throw Error('Unavailable');tx.update(ref,{status:'cancelled'})});}
+ if(action!=='queue'||input.confirm!==true||! /^[A-Za-z0-9_-]{1,128}$/.test(input.uid)||typeof input.title!=='string'||!input.title.trim()||input.title.length>100||typeof input.body!=='string'||!input.body.trim()||input.body.length>1000)throw Error('Invalid request');
+ const id=crypto.randomUUID();await runTransaction(db,async tx=>{const app=await tx.get(doc(db,'apps','3al-tabloh')),sub=await tx.get(doc(db,'webPushSubscriptions',input.uid));if(ticket!==generation||auth.currentUser!==user||!app.exists()||!sub.exists()||!(app.data().modules??['notifications']).includes('notifications'))throw Error('Unavailable');tx.set(doc(db,'webPushJobs',id),{uid:input.uid,title:input.title.trim(),body:input.body.trim(),status:'queued',createdAt:serverTimestamp()})});return id;
+};
+window.appcoreDiagnosticSnapshot=async(id)=>{const user=auth.currentUser,ticket=generation,project=canonicalProjectId(id);if(!ready||user?.uid!==owner||!['exmore','altabloh'].includes(project))throw Error('Unauthorized');const snap=await getDocs(query(collection(db,'diagnosticSnapshots'),where(documentId(),'==',project),limit(1)));if(ticket!==generation||auth.currentUser!==user)throw Error('Session changed');return snap.empty?null:snap.docs[0].data()};

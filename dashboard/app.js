@@ -21,6 +21,8 @@ if(["exmore","3al-tabloh"].includes(a.id)){
   if(a.id==="3al-tabloh")main.append(catalogPublishPanel());
   main.append(pilotPairPanel(a));
   main.append(registeredDevicePanel(a));
+  if(selected(a).includes("notifications")&&a.id==="3al-tabloh")main.append(webPushPanel());
+  if(selected(a).includes("crashes")||selected(a).includes("analytics"))main.append(diagnosticSnapshotPanel(a));
   if(selected(a).includes("notifications"))main.append(operationsNotificationPanel(a));
   main.append(operationsDiagnosticsPanel(a));
   main.append(healthHistoryPanel());
@@ -380,3 +382,13 @@ function registeredDevicePanel(a){
  btn.onclick=async()=>{btn.disabled=true;try{const v=await window.appcoreRegisteredDevices(a.id);out.replaceChildren(el('p',v.active24h+' نشط خلال 24 ساعة من '+v.sampled+' في العينة'));for(const r of v.rows)out.append(el('p',r.platform+' — '+r.versionCode+' — '+(r.lastSeen?.toDate?.()?.toLocaleString()||'—')))}catch{out.textContent='تعذر تحميل التسجيلات'}finally{btn.disabled=false}};
  return p;
 }
+
+function webPushPanel(){
+ const p=card('إشعارات Web — اختبار لجهاز واحد','اختر اشتراكاً؛ إنشاء الطلب لا يرسل الإشعار. نفّذ dispatch.sh webnotify ID --confirm. لا تضع بيانات خاصة.');
+ const select=el('select'),title=el('input'),body=el('textarea'),load=el('button','تحميل الاشتراكات'),send=el('button','إنشاء طلب'),jobs=el('button','عرض الطلبات'),out=el('p'),list=el('div');title.placeholder='العنوان';body.placeholder='الرسالة';title.maxLength=100;body.maxLength=1000;send.disabled=true;
+ load.onclick=async()=>{load.disabled=true;send.disabled=true;try{select.replaceChildren();for(const r of await window.appcoreWebPush('list')){const o=el('option',r.id.slice(0,8)+'… — '+r.updatedAt?.toDate?.()?.toLocaleString());o.value=r.id;select.append(o)}send.disabled=!select.options.length;out.textContent=select.options.length+' اشتراك في العينة'}catch{out.textContent='تعذر التحميل'}finally{load.disabled=false}};
+ send.onclick=async()=>{if(!confirm('إنشاء اختبار لاشتراك واحد؟'))return;send.disabled=true;try{out.textContent='معرف الطلب: '+await window.appcoreWebPush('queue',{uid:select.value,title:title.value,body:body.value,confirm:true})+' — لم يرسل بعد'}catch{out.textContent='تعذر إنشاء الطلب'}finally{send.disabled=!select.options.length}};
+ jobs.onclick=async()=>{jobs.disabled=true;try{list.replaceChildren();for(const r of await window.appcoreWebPush('jobs')){const line=el('div');line.append(el('p',r.id+' — '+r.status));if(r.status==='queued'){const b=el('button','إلغاء');b.onclick=async()=>{if(!confirm('إلغاء الطلب؟'))return;b.disabled=true;try{await window.appcoreWebPush('cancel',{id:r.id,confirm:true});line.textContent='أُلغي الطلب'}catch{line.append(el('p','تعذر الإلغاء'))}};line.append(b)}list.append(line)}}catch{list.textContent='تعذر التحميل'}finally{jobs.disabled=false}};
+ p.append(load,select,title,body,send,out,jobs,list);return p;
+}
+function diagnosticSnapshotPanel(a){const p=card('Crashlytics / Performance — BigQuery','لقطة مجمعة لآخر 7 أيام مكتملة (UTC). لا تتضمن أسماء مستخدمين أو محتوى شخصياً؛ ليست لحظية.');const b=el('button','تحميل آخر استيراد'),out=el('pre','لم يتم التحميل','console-output');b.onclick=async()=>{b.disabled=true;try{const v=await window.appcoreDiagnosticSnapshot(a.id);out.textContent=v?JSON.stringify(v,null,2):'لا يوجد استيراد مؤكد بعد'}catch{out.textContent='تعذر التحميل'}finally{b.disabled=false}};p.append(b,out);return p;}
