@@ -24,11 +24,24 @@ if(["exmore","3al-tabloh"].includes(a.id)){
 }
 main.append(servicePanel(a,"audit"));}
 else if(key==="logs"){main.append(el("h1","SYSTEM CONSOLE"),card(connected?"[OK] Firestore connection":"[OFFLINE] Firestore not verified","[PENDING] Application integration / Notification gateway"));}
-else {main.append(el("h1",key==="settings"?"الإعدادات":"المراقبة"),card("حالة الخدمات","لا توجد بيانات تشغيلية متحققة بعد."));}}
+else if(key==="monitor"){main.append(el("h1","المراقبة"),publicHealthPanel());}
+else {main.append(el("h1","الإعدادات"),card("حالة الخدمات","لا توجد بيانات تشغيلية متحققة بعد."));}}
 for(const [key,label] of [["overview","الرئيسية"],["apps","التطبيقات"],["monitor","المراقبة"],["logs","السجل"],["settings","الإعدادات"]]){const b=el("button",label);b.dataset.key=key;b.onclick=()=>show(key);nav.append(b);}
 document.querySelector("#theme").onclick=()=>document.body.classList.toggle("light");
 window.addEventListener("appcore-data",e=>{apps=e.detail?.apps||[];connected=e.detail?.connected===true;show(!["overview","apps","monitor","logs","settings"].includes(active)&&!apps.some(a=>a.id===active)?"overview":active);});
 show("overview");
+
+function publicHealthPanel(){
+ const panel=card('فحص الخدمات العامة','فحص مباشر؛ يوضح استجابة الخدمة ولا يثبت تسليم الإشعارات أو وصول الإعدادات إلى الأجهزة.');
+ const button=el('button','فحص الآن'),status=el('p','لم يبدأ الفحص'),list=el('div');
+ status.setAttribute('role','status');panel.append(button,status,list);
+ button.onclick=async()=>{button.disabled=true;status.textContent='جارٍ الفحص';list.replaceChildren();
+  try{const {checkPublicHealth}=await import('./public-health.mjs');const rows=await checkPublicHealth();
+   for(const row of rows){const item=card(row.name,row.ok?'متاح — '+row.latencyMs+' ms':'غير متاح أو استجابة غير صالحة');if(row.status!==null)item.append(el('p','HTTP '+row.status));list.append(item)}
+   status.textContent='اكتمل الفحص: '+rows.filter(row=>row.ok).length+' / '+rows.length;
+  }catch{status.textContent='تعذر إجراء الفحص'}finally{button.disabled=false}}
+ return panel;
+}
 
 function draftPanel(a,kind){
  const release=kind==="releases",panel=card(modules[kind],"مسودات — التشغيل يتطلب نشر الخادم"),form=el("form"),fields={};

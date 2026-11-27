@@ -1,0 +1,26 @@
+const base='https://appcore-poc.dr-karimelshenawy.workers.dev';
+const checks=[
+ ['gateway','/health'],
+ ['exmore/android','/api/v1/apps/exmore/android/config'],
+ ['altabloh/android','/api/v1/apps/altabloh/android/config'],
+ ['altabloh/web','/api/v1/apps/altabloh/web/config']
+];
+export async function checkPublicHealth({fetchImpl=globalThis.fetch,clock=()=>Date.now(),timeoutMs=6000}={}){
+ return Promise.all(checks.map(async ([name,path])=>{
+  const started=clock(),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
+  try{
+   const response=await fetchImpl(base+path,{signal:controller.signal,redirect:'error',cache:'no-store',credentials:'omit'});
+   if(!response.ok)return {name,ok:false,status:response.status,latencyMs:clock()-started};
+   const raw=await response.text();
+   if(raw.length>16384)throw Error('Oversized response');
+   const value=JSON.parse(raw),target=name.split('/');
+   const valid=name==='gateway'?value.service==='appcore-poc'&&value.status==='ok':
+    value.schemaVersion===1&&value.projectId===target[0]&&value.platform===target[1]&&
+    Number.isSafeInteger(value.revision)&&value.revision>0&&
+    Number.isSafeInteger(value.expiresAt)&&value.expiresAt>clock()&&
+    typeof value.maintenance==='boolean'&&value.flags&&typeof value.flags==='object'&&!Array.isArray(value.flags);
+   return {name,ok:Boolean(valid),status:response.status,latencyMs:clock()-started};
+  }catch{return {name,ok:false,status:null,latencyMs:clock()-started};}
+  finally{clearTimeout(timer);}
+ }));
+}

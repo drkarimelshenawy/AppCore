@@ -22,6 +22,7 @@ jobs:
         run: |
           npm --prefix server install --no-audit --no-fund
           npm --prefix server test
+          node --test tests/public-health.test.mjs
       - name: Functions tests
         run: |
           npm --prefix functions install --no-audit --no-fund
