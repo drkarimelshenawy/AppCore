@@ -1,0 +1,69 @@
+name: AppCore Config Guardian
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, feat/appcore-command-center]
+    paths:
+      - '.github/workflows/config-guardian.yml'
+  schedule:
+    - cron: '17,47 * * * *'
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: appcore-config-guardian
+  cancel-in-progress: false
+jobs:
+  renew:
+    if: github.repository == 'drkarimelshenawy/AppCore' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feat/appcore-command-center')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: google-github-actions/auth@v3
+        id: auth
+        with:
+          workload_identity_provider: projects/316863421809/locations/global/workloadIdentityPools/appcore-github/providers/github
+          service_account: appcore-worker@appcore-2026.iam.gserviceaccount.com
+          token_format: access_token
+          create_credentials_file: false
+      - name: Renew expiring configurations atomically
+        env:
+          ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os,json,time,urllib.request
+          base='https://firestore.googleapis.com/v1/projects/appcore-2026/databases/(default)/documents'
+          headers={'Authorization':'Bearer '+os.environ['ACCESS_TOKEN'],'Content-Type':'application/json'}
+          def req(url,body=None):
+              with urllib.request.urlopen(urllib.request.Request(url,headers=headers,data=None if body is None else json.dumps(body).encode()),timeout=20) as r:
+                  return json.load(r)
+          now=int(time.time()*1000)
+          writes=[]
+          for project,platform in [('exmore','android'),('altabloh','android'),('altabloh','web')]:
+              key=project+'_'+platform
+              d=req(base+'/publicConfigs/'+key)
+              f=d['fields']
+              assert set(f)=={'schemaVersion','projectId','platform','revision','expiresAt','maintenance','flags'}
+              assert f['schemaVersion']['integerValue']=='1' and f['projectId']['stringValue']==project and f['platform']['stringValue']==platform
+              rev=int(f['revision']['integerValue'])
+              assert 0<rev<9007199254740991
+              assert isinstance(f['maintenance']['booleanValue'],bool)
+              import re
+              flags=f['flags']['mapValue'].get('fields',{})
+              assert len(flags)<=50 and all(re.fullmatch('[a-z][a-z0-9_]{0,39}',k) and k not in ('constructor','prototype') and isinstance(v.get('booleanValue'),bool) for k,v in flags.items())
+              if int(f['expiresAt']['integerValue'])>now+21600000:
+                  print(key,'healthy')
+                  continue
+              writes.append({'update':{'name':d['name'],'fields':{'revision':{'integerValue':str(rev+1)},'expiresAt':{'integerValue':str(now+82800000)}}},'updateMask':{'fieldPaths':['revision','expiresAt']},'currentDocument':{'updateTime':d['updateTime']}})
+          if writes:
+              req(base+':commit',{'writes':writes})
+          print('Renewed',len(writes),'records')
+          PY
+      - name: Verify public configuration endpoints
+        run: |
+          set -e
+          for target in exmore/android altabloh/android altabloh/web; do
+            curl --fail --silent --show-error --max-time 20 "https://appcore-poc.dr-karimelshenawy.workers.dev/api/v1/apps/$target/config" >/dev/null
+            echo "$target OK"
+          done
