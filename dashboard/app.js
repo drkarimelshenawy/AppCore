@@ -20,6 +20,8 @@ if(["exmore","3al-tabloh"].includes(a.id)){
   main.append(omegaRenewPanel(a));
   if(a.id==="3al-tabloh")main.append(catalogPublishPanel());
   main.append(pilotPairPanel(a));
+  if(selected(a).includes("notifications"))main.append(operationsNotificationPanel(a));
+  main.append(operationsDiagnosticsPanel(a));
   main.append(healthHistoryPanel());
 }
 main.append(servicePanel(a,"audit"));}
@@ -353,4 +355,20 @@ function omegaRenewPanel(a){
  const p=card('تجديد صلاحية الإعدادات','تجديد الإعدادات المنشورة دون تغيير قيمها');
  const out=el('p');for(const platform of (a.id==='exmore'?['android']:['android','web'])){
  const b=el('button','Renew '+platform);b.onclick=async()=>{if(!confirm('تجديد الإعدادات الحالية؟'))return;b.disabled=true;try{out.textContent='Revision '+await window.appcoreOmegaRenew(a.id,platform)}catch(e){out.textContent=e.message}finally{b.disabled=false}};p.append(b)}p.append(out);return p;
+}
+
+function operationsNotificationPanel(a){
+ const p=card('إشعارات FCM — اختبار حقيقي','إنشاء طلب لا يرسل شيئاً. الإرسال إلى موضوع الاختبار فقط بعد تشغيل dispatch.sh من حزمة Termux (أو اعتماد الطلب في GitHub Actions عند إتاحة التشغيل اليدوي). لا تستخدم بيانات خاصة.');
+ const form=el('form'),title=el('input'),body=el('textarea'),button=el('button','إنشاء طلب اختبار'),out=el('p',''),list=el('div'),load=el('button','عرض الطلبات');
+ title.required=body.required=true;title.maxLength=100;body.maxLength=1000;title.placeholder='العنوان';body.placeholder='الرسالة';out.setAttribute('role','status');
+ const link=el('a','فتح GitHub Actions لاعتماد الطلب');link.href='https://github.com/drkarimelshenawy/AppCore/actions/workflows/appcore-operations.yml';link.target='_blank';link.rel='noopener noreferrer';
+ form.append(title,body,button);p.append(form,out,link,load,list);
+ form.onsubmit=async e=>{e.preventDefault();if(!confirm('إنشاء طلب لإشعارات الاختبار فقط؟'))return;button.disabled=true;try{const id=await window.appcoreOperationalQueue(a.id,'queue',{title:title.value,body:body.value,confirm:true});out.textContent='معرف الطلب: '+id+' — لم يُرسل بعد';form.reset()}catch{out.textContent='تعذر إنشاء الطلب'}finally{button.disabled=false}};
+ load.onclick=async()=>{load.disabled=true;try{const rows=await window.appcoreOperationalQueue(a.id,'list');list.replaceChildren();for(const r of rows){const line=el('div');line.append(el('p',r.id+' — '+r.status+' — '+(r.createdAt?.toDate?.()?.toLocaleString()||'')));if(r.status==='queued'){const cancel=el('button','إلغاء الطلب');cancel.onclick=async()=>{if(!confirm('إلغاء الطلب؟'))return;cancel.disabled=true;try{await window.appcoreOperationalQueue(a.id,'cancel',{id:r.id,confirm:true});line.textContent='تم إلغاء الطلب'}catch{line.append(el('p','تعذر الإلغاء؛ قد يكون الإرسال بدأ'))}finally{cancel.disabled=false}};line.append(cancel)}list.append(line)}if(!rows.length)list.append(el('p','لا توجد طلبات'))}catch{list.textContent='تعذر تحميل الطلبات'}finally{load.disabled=false}};
+ return p;
+}
+
+function operationsDiagnosticsPanel(a){
+ const p=card('التشخيص والأداء','جمع اختياري على Android. استيراد GA4 إلى إحصائيات AppCore يحتاج إعداد Property وStream. تفاصيل الأعطال والأداء لا تُستورد إلى اللوحة في هذا الإصدار.');
+ const link=el('a','فتح مشروع Firebase لعرض Crashlytics وPerformance');link.href='https://console.firebase.google.com/project/appcore-2026/overview';link.target='_blank';link.rel='noopener noreferrer';p.append(link);return p;
 }

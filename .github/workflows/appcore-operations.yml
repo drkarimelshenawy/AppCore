@@ -1,0 +1,71 @@
+name: AppCore owner operations
+on:
+  push:
+    branches: [feat/appcore-command-center]
+    paths: ['.appcore/operation-request.json']
+  workflow_dispatch:
+    inputs:
+      operation:
+        type: choice
+        options: [notify, analytics, health]
+        required: true
+      notification_id:
+        description: Owner-created queue ID (notify only)
+        type: string
+        required: false
+      confirm:
+        description: Confirm real operation; notify sends to isolated test topic only
+        type: boolean
+        default: false
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: appcore-owner-operations
+  cancel-in-progress: false
+jobs:
+  run:
+    if: (github.event_name == 'push' || inputs.confirm == true) && github.repository == 'drkarimelshenawy/AppCore' && github.ref == 'refs/heads/feat/appcore-command-center'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/operations.test.mjs
+      - name: Validate explicit operation request
+        id: request
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT_OPERATION: ${{ inputs.operation }}
+          INPUT_ID: ${{ inputs.notification_id }}
+          INPUT_CONFIRM: ${{ inputs.confirm }}
+        run: |
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          const v=process.env.EVENT==='push'?JSON.parse(fs.readFileSync('.appcore/operation-request.json','utf8')):{operation:process.env.INPUT_OPERATION,notificationId:process.env.INPUT_ID,confirm:process.env.INPUT_CONFIRM==='true'};
+          if(v.confirm!==true||!['notify','analytics','health'].includes(v.operation))throw Error('Explicit approval required');
+          if(v.operation==='notify'&&!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(v.notificationId??''))throw Error('Invalid notification ID');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT,'operation='+v.operation+'\nnotification_id='+(v.operation==='notify'?v.notificationId:'')+'\n');
+          JS
+      - uses: google-github-actions/auth@v3
+        id: auth
+        with:
+          workload_identity_provider: projects/316863421809/locations/global/workloadIdentityPools/appcore-github/providers/github
+          service_account: appcore-worker@appcore-2026.iam.gserviceaccount.com
+          create_credentials_file: false
+          export_environment_variables: false
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/cloud-platform,https://www.googleapis.com/auth/analytics.readonly
+      - name: Run explicitly selected operation
+        env:
+          GOOGLE_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          OPERATIONS_CONFIRM: 'true'
+          OPERATION: ${{ steps.request.outputs.operation }}
+          NOTIFICATION_ID: ${{ steps.request.outputs.notification_id }}
+          GA_EXMORE_PROPERTY: ${{ vars.GA_EXMORE_PROPERTY }}
+          GA_EXMORE_STREAM: ${{ vars.GA_EXMORE_STREAM }}
+          GA_ALTABLOH_PROPERTY: ${{ vars.GA_ALTABLOH_PROPERTY }}
+          GA_ALTABLOH_STREAM: ${{ vars.GA_ALTABLOH_STREAM }}
+        run: node scripts/appcore-operations.mjs "$OPERATION"

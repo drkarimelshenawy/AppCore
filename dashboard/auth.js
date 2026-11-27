@@ -422,3 +422,26 @@ window.appcoreOmegaRenew=async(id,platform)=>{
 };
 
 window.appcoreTitanSummary=async()=>{const user=auth.currentUser,ticket=generation;if(!ready||user?.uid!==owner)throw Error('Unauthorized');const out=[];for(const id of ['exmore','altabloh']){const snap=await getDocs(query(collection(db,'pairedDevices',id,'items'),orderBy('lastSeen','desc'),limit(100)));if(ticket!==generation||auth.currentUser!==user)throw Error('Session changed');const rows=snap.docs.map(d=>d.data());out.push({id,sampled:rows.length,active:rows.filter(d=>d.versionCode>0&&Date.now()-d.lastSeen.toMillis()<86400000).length,pending:rows.filter(d=>d.versionCode===0).length});}return out;};
+
+// Owner-only immutable test queue. Dispatch requires separate GitHub confirmation.
+window.appcoreOperationalQueue=async(id,action,input={})=>{
+ const user=auth.currentUser,ticket=generation,project=canonicalProjectId(id);
+ if(!ready||user?.uid!==owner||!['exmore','altabloh'].includes(project))throw Error('Unauthorized');
+ const col=collection(db,'operationsNotifications');
+ if(action==='list'){
+  const snap=await getDocs(query(col,where('appId','==',project),limit(100)));
+  if(ticket!==generation||auth.currentUser!==user)throw Error('Session changed');
+  return snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.createdAt?.toMillis?.()??0)-(a.createdAt?.toMillis?.()??0));
+ }
+ if(action==='cancel'){
+  if(input.confirm!==true||!/^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/.test(input.id??''))throw Error('Invalid request');
+  await runTransaction(db,async tx=>{const ref=doc(col,input.id),d=await tx.get(ref);if(ticket!==generation||auth.currentUser!==user||!d.exists()||d.data().appId!==project||d.data().status!=='queued')throw Error('Request no longer queued');tx.update(ref,{status:'cancelled'})});return;
+ }
+ if(action!=='queue'||input.confirm!==true||typeof input.title!=='string'||!input.title.trim()||input.title.length>100||typeof input.body!=='string'||!input.body.trim()||input.body.length>1000)throw Error('Invalid request');
+ const key=crypto.randomUUID();
+ await runTransaction(db,async tx=>{
+  const app=await tx.get(doc(db,'apps',id));
+  if(ticket!==generation||auth.currentUser!==user||!app.exists()||!(app.data().modules??['notifications']).includes('notifications'))throw Error('Notifications disabled');
+  tx.set(doc(col,key),{appId:project,title:input.title.trim(),body:input.body.trim(),audience:'test',status:'queued',createdAt:serverTimestamp()});
+ });return key;
+};

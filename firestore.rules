@@ -201,6 +201,22 @@ service cloud.firestore {
       && request.resource.data.updatedAt == request.time;
     allow delete: if false;
   }
+  // Owner-created test notification jobs; only Google IAM backend may update status.
+  match /operationsNotifications/{id} {
+   allow read: if owner();
+   allow create: if owner() && id.matches('[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
+     && request.resource.data.keys().hasAll(['appId','title','body','audience','status','createdAt'])
+     && request.resource.data.keys().hasOnly(['appId','title','body','audience','status','createdAt'])
+     && request.resource.data.appId in ['exmore','altabloh']
+     && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 100
+     && request.resource.data.body is string && request.resource.data.body.size() > 0 && request.resource.data.body.size() <= 1000
+     && request.resource.data.audience == 'test' && request.resource.data.status == 'queued'
+     && request.resource.data.createdAt == request.time;
+   allow update: if owner() && resource.data.status == 'queued'
+     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+     && request.resource.data.status == 'cancelled';
+   allow delete: if false;
+  }
   match /{document=**} { allow read, write: if false; }
  }
 }
