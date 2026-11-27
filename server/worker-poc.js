@@ -45,5 +45,14 @@ export default {
   if(request.method!=='GET'||path!=='/health')return new Response('Not found',{status:404});
   return Response.json({service:'appcore-poc',status:'ok',secretBinding:env.POC_TEST_SECRET==='synthetic-test-only-not-a-credential'},{headers:{'Cache-Control':'no-store'}});
  },
- async scheduled(){console.log(JSON.stringify({event:'website-monitor',appId:'altabloh',legacyStorageId:'3al-tabloh',...await checkWebsite()}));for(const result of await run())console.log(JSON.stringify({event:'google-connectivity-v2',...result}));}
+ async scheduled(){
+  for(const [project,platform] of [['exmore','android'],['altabloh','android'],['altabloh','web']]){
+   try{
+    const response=await readPublicConfig(project,platform);
+    const config=response.ok?await response.json():null;
+    const remainingMs=config?config.expiresAt-Date.now():null;
+    console.log(JSON.stringify({event:'config-guardian',project,platform,status:response.status,remainingMs,state:!config?'unavailable':remainingMs<=21600000?'renewal-required':'healthy'}));
+   }catch{console.log(JSON.stringify({event:'config-guardian',project,platform,state:'unavailable'}));}
+  }
+  console.log(JSON.stringify({event:'website-monitor',appId:'altabloh',legacyStorageId:'3al-tabloh',...await checkWebsite()}));for(const result of await run())console.log(JSON.stringify({event:'google-connectivity-v2',...result}));}
 };
