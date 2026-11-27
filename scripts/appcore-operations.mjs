@@ -1,5 +1,7 @@
 // Explicitly owner-controlled operations; no automatic or bulk sends.
 import {pathToFileURL} from 'node:url';
+import {randomUUID} from 'node:crypto';
+import {healthFields} from './appcore-health-record.mjs';
 import {checkPublicHealth} from '../dashboard/public-health.mjs';
 const project='appcore-2026';
 const root=`projects/${project}/databases/(default)/documents`;
@@ -87,7 +89,8 @@ export function createOperations({token,fetchImpl=globalThis.fetch,clock=()=>Dat
   }
   return rows;
  }
- return {send,analytics,health};
+ async function recordHealth(rows){const name=root+'/healthRuns/'+randomUUID();await commit([{update:{name,fields:healthFields(rows,clock())},currentDocument:{exists:false}}]);}
+ return {send,analytics,health,recordHealth};
 }
 async function main(){
  const mode=process.argv[2],api=createOperations({token:process.env.GOOGLE_ACCESS_TOKEN});
@@ -99,7 +102,7 @@ async function main(){
   if(targets.some(([,p,s])=>!/^\d{1,20}$/.test(p??'')||!/^\d{1,20}$/.test(s??''))||(GA_EXMORE_PROPERTY===GA_ALTABLOH_PROPERTY&&GA_EXMORE_STREAM===GA_ALTABLOH_STREAM))throw Error('Configure two distinct verified GA property/stream pairs');
   for(const args of targets)console.log(JSON.stringify(await api.analytics(...args)));return;
  }
- if(mode==='health'){const rows=await api.health();console.log(JSON.stringify(rows));if(rows.some(x=>!x.ok))process.exitCode=1;return;}
+ if(mode==='health'){const rows=await api.health();await api.recordHealth(rows);console.log(JSON.stringify(rows));if(rows.some(x=>!x.ok))process.exitCode=1;return;}
  throw Error('Unknown operation');
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href)main().catch(e=>{console.error(e.message);process.exitCode=1});

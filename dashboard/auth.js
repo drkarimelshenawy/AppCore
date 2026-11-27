@@ -445,3 +445,12 @@ window.appcoreOperationalQueue=async(id,action,input={})=>{
   tx.set(doc(col,key),{appId:project,title:input.title.trim(),body:input.body.trim(),audience:'test',status:'queued',createdAt:serverTimestamp()});
  });return key;
 };
+
+window.appcoreRegisteredDevices=async(id)=>{
+ const user=auth.currentUser,ticket=generation,project=canonicalProjectId(id);
+ if(!ready||user?.uid!==owner||!['exmore','altabloh'].includes(project))throw Error('Unauthorized');
+ const snap=await getDocs(query(collection(db,'registeredDevices',project,'items'),orderBy('lastSeen','desc'),limit(100)));
+ if(ticket!==generation||auth.currentUser!==user)throw Error('Session changed');
+ const rows=snap.docs.map(d=>d.data());
+ return {sampled:rows.length,active24h:rows.filter(r=>r.lastSeen?.toMillis?.()>Date.now()-86400000).length,rows:rows.map(r=>({platform:r.platform,versionCode:r.versionCode,lastSeen:r.lastSeen}))};
+};

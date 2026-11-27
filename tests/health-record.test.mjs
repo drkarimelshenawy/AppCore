@@ -1,0 +1,5 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {healthFields} from '../scripts/appcore-health-record.mjs';
+const rows=[['exmore','gateway'],['exmore','android-config'],['altabloh','android-config'],['altabloh','web-config'],['altabloh','website']].map(([app,key])=>({app,key,ok:true,status:200,latencyMs:12}));
+test('exact five probes and counts',()=>{const f=healthFields(rows,0);assert.equal(f.results.arrayValue.values.length,5);assert.equal(f.failed.integerValue,'0')});
+test('contract failure even on HTTP 200 preserved',()=>{const f=healthFields(rows.map((r,i)=>({...r,ok:i!==0})),0);assert.equal(f.failed.integerValue,'1');assert.equal(f.results.arrayValue.values[0].mapValue.fields.status.integerValue,'200')});
+test('reject missing duplicate and invalid probe',()=>{assert.throws(()=>healthFields(rows.slice(1),0));assert.throws(()=>healthFields([...rows.slice(1),rows[1]],0));assert.throws(()=>healthFields(rows.map(r=>({...r,latencyMs:-1})),0));assert.throws(()=>healthFields(rows.map(r=>({...r,status:500})),0))});

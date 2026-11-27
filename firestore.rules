@@ -217,6 +217,21 @@ service cloud.firestore {
      && request.resource.data.status == 'cancelled';
    allow delete: if false;
   }
+  // Anonymous, self-reported, opt-in installations. Not app attestation.
+  match /registeredDevices/{appId}/items/{uid} {
+    function installation() { return request.auth != null && request.auth.uid == uid && request.auth.token.firebase.sign_in_provider == 'anonymous' && appId in ['exmore','altabloh']; }
+    function validRegistration() {
+      return request.resource.data.keys().hasAll(['platform','versionCode','lastSeen'])
+        && request.resource.data.keys().hasOnly(['platform','versionCode','lastSeen'])
+        && request.resource.data.platform == 'android'
+        && request.resource.data.versionCode is int && request.resource.data.versionCode > 0 && request.resource.data.versionCode <= 2100000000
+        && request.resource.data.lastSeen == request.time;
+    }
+    allow read: if owner();
+    allow create: if installation() && validRegistration();
+    allow update: if installation() && validRegistration() && request.time >= resource.data.lastSeen + duration.value(1,'h');
+    allow delete: if owner() || installation();
+  }
   match /{document=**} { allow read, write: if false; }
  }
 }

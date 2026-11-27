@@ -20,6 +20,7 @@ if(["exmore","3al-tabloh"].includes(a.id)){
   main.append(omegaRenewPanel(a));
   if(a.id==="3al-tabloh")main.append(catalogPublishPanel());
   main.append(pilotPairPanel(a));
+  main.append(registeredDevicePanel(a));
   if(selected(a).includes("notifications"))main.append(operationsNotificationPanel(a));
   main.append(operationsDiagnosticsPanel(a));
   main.append(healthHistoryPanel());
@@ -371,4 +372,11 @@ function operationsNotificationPanel(a){
 function operationsDiagnosticsPanel(a){
  const p=card('التشخيص والأداء','جمع اختياري على Android. استيراد GA4 إلى إحصائيات AppCore يحتاج إعداد Property وStream. تفاصيل الأعطال والأداء لا تُستورد إلى اللوحة في هذا الإصدار.');
  const link=el('a','فتح مشروع Firebase لعرض Crashlytics وPerformance');link.href='https://console.firebase.google.com/project/appcore-2026/overview';link.target='_blank';link.rel='noopener noreferrer';p.append(link);return p;
+}
+
+function registeredDevicePanel(a){
+ const p=card('التثبيتات المسجلة اختيارياً','Android فقط — أحدث 100 سجل، ليست إجمالي المستخدمين أو أجهزة موثقة الهوية. لا تعرض معرفات Firebase.');
+ const btn=el('button','تحميل التسجيلات'),out=el('div');out.setAttribute('role','status');p.append(btn,out);
+ btn.onclick=async()=>{btn.disabled=true;try{const v=await window.appcoreRegisteredDevices(a.id);out.replaceChildren(el('p',v.active24h+' نشط خلال 24 ساعة من '+v.sampled+' في العينة'));for(const r of v.rows)out.append(el('p',r.platform+' — '+r.versionCode+' — '+(r.lastSeen?.toDate?.()?.toLocaleString()||'—')))}catch{out.textContent='تعذر تحميل التسجيلات'}finally{btn.disabled=false}};
+ return p;
 }

@@ -26,7 +26,7 @@ jobs:
           node-version: '22'
       - name: Verify code
         run: |
-          node --test server/google-*.test.js tests/operations.test.mjs
+          node --test server/google-*.test.js tests/operations.test.mjs tests/health-record.test.mjs tests/record-health-write.test.mjs
           node --input-type=module --check < dashboard/auth.js
           node --check dashboard/app.js
           node --check server/worker-poc.js
@@ -37,7 +37,7 @@ jobs:
       - name: Verify Firestore operations rules before any deployment
         run: |
           npm install --no-save --no-package-lock firebase@11.10.0 @firebase/rules-unit-testing@4
-          npx --yes firebase-tools@14.27.0 emulators:exec --only firestore --project demo-appcore 'node --test tests/operations-rules.test.cjs tests/paired-devices.test.cjs'
+          npx --yes firebase-tools@14.27.0 emulators:exec --only firestore --project demo-appcore 'node --test tests/operations-rules.test.cjs tests/paired-devices.test.cjs tests/registry-rules.test.cjs'
       - uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: projects/316863421809/locations/global/workloadIdentityPools/appcore-github/providers/github
