@@ -1,5 +1,6 @@
 {
   "confirm": true,
   "scope": "appcore-admin-only",
-  "design": "rtl-navy-cyan-v8"
+  "design": "rtl-navy-cyan-v8",
+  "attempt": 2
 }
