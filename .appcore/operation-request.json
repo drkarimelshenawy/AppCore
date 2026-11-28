@@ -1,6 +1,6 @@
 {
-  "operation": "analytics",
+  "operation": "health",
   "notificationId": "",
   "confirm": true,
-  "invocation": "5456876b-09e5-4664-a5b8-5aafc51779ad"
+  "invocation": "post-worker18-activation-health-20261128"
 }
