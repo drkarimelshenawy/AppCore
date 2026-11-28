@@ -5,7 +5,7 @@ import {resolve,extname,sep} from 'node:path';
 import assert from 'node:assert/strict';
 const root=resolve('dashboard'),server=createServer(async(req,res)=>{
  try{const p=resolve(root,'.'+decodeURIComponent(new URL(req.url,'http://localhost').pathname==='/'
- ?'/index.html':new URL(req.url,'http://localhost').pathname));if(!p.startsWith(root+sep))throw Error('path');const body=await readFile(p);res.setHeader('Content-Type',({'.html':'text/html; charset=utf-8','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css','.svg':'image/svg+xml'})[extname(p)]||'application/octet-stream');res.end(body)}catch{res.writeHead(404);res.end()}
+ ?'/index.html':new URL(req.url,'http://localhost').pathname));if(!p.startsWith(root+sep))throw Error('path');const body=await readFile(p);res.setHeader('Content-Type',({'.html':'text/html; charset=utf-8','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png'})[extname(p)]||'application/octet-stream');res.end(body)}catch{res.writeHead(404);res.end()}
 });
 await new Promise(r=>server.listen(0,'127.0.0.1',r));const base='http://127.0.0.1:'+server.address().port;
 const browser=await chromium.launch({headless:true});const failures=[];
@@ -35,7 +35,9 @@ async function run(width,height){
  await page.evaluate(()=>window.__session());await page.locator('.service-row').first().waitFor();
  assert.match(await page.locator('main').innerText(),/2 \/ 2 سليمة/);
  async function go(key){if(width<=850)await page.locator('#menu').click();await page.locator('#nav button[data-key="'+key+'"]').click();await page.waitForFunction(k=>location.hash==='#'+k,key);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true,'horizontal overflow '+key+' '+width)}
- await go('apps');await page.getByRole('button',{name:'إدارة التطبيق',exact:true}).first().click();
+ await go('apps');
+ for(const id of ['exmore','3al-tabloh']){const image=page.locator('img[src="./app-logos/'+id+'.png"]').first();await image.waitFor();await image.evaluate(x=>x.decode());assert.ok(await image.evaluate(x=>x.naturalWidth>=48));}
+ await page.getByRole('button',{name:'إدارة التطبيق',exact:true}).first().click();
  await page.getByRole('tab',{name:'التحكم عن بُعد',exact:true}).click();
  await page.getByRole('button',{name:'تحميل المسودة',exact:true}).click();
  assert.equal(await page.locator('select').first().inputValue(),'pilot');

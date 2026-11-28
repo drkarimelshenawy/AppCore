@@ -1,0 +1,6 @@
+{
+  "confirm": true,
+  "scope": "appcore-admin-only",
+  "request": "original-app-icons",
+  "revision": 1
+}

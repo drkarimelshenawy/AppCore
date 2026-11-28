@@ -2,9 +2,9 @@ name: AppCore design — browser QA and admin deployment
 on:
   push:
     branches: [feat/appcore-command-center]
-    paths: ['.appcore/design-release.json']
+    paths: ['.appcore/design-release.json', '.appcore/logo-sync.json']
 permissions:
-  contents: read
+  contents: write
   id-token: write
 concurrency:
   group: appcore-design-release
@@ -23,11 +23,25 @@ jobs:
           node -e 'const r=require("./.appcore/design-release.json"); if(r.confirm!==true||r.scope!=="appcore-admin-only")process.exit(1)'
           node --check dashboard/app.js
           node --input-type=module --check < dashboard/auth.js
+      - name: Synchronize verified official app icons
+        env:
+          APPCORE_GITHUB_READ_TOKEN: ${{ secrets.APPCORE_GITHUB_READ_TOKEN }}
+        run: node scripts/sync-app-logos.mjs
       - name: Real Chromium responsive and interaction tests (isolated fixture)
         run: |
           npm install --no-save --no-package-lock playwright@1.51.1
           npx playwright install --with-deps chromium
           node tests/dashboard-browser.mjs
+      - name: Store verified logos and provenance on development branch
+        run: |
+          set -euo pipefail
+          git add dashboard/app-logos docs/app-logo-lock.json
+          if ! git diff --cached --quiet; then
+            git config user.name 'AppCore Logo Sync'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git commit -m 'AppCore: sync verified original application icons'
+            git push origin HEAD:refs/heads/feat/appcore-command-center
+          fi
       - uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: projects/316863421809/locations/global/workloadIdentityPools/appcore-github/providers/github
@@ -40,3 +54,9 @@ jobs:
           node scripts/verify-activation.mjs live
           curl -fsS --max-time 20 "https://appcore-2026.web.app/brand.svg?revision=${GITHUB_SHA}" -o /tmp/appcore-brand.svg
           cmp dashboard/brand.svg /tmp/appcore-brand.svg
+          for file in dashboard/app-logos/*.png; do
+            name=$(basename "$file")
+            curl -fsS --max-time 20 "https://appcore-2026.web.app/app-logos/$name?revision=${GITHUB_SHA}" -o "/tmp/$name"
+            cmp "$file" "/tmp/$name"
+            echo "LIVE $name: exact original PNG"
+          done

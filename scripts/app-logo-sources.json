@@ -1,0 +1,23 @@
+[
+  {
+    "id": "exmore",
+    "repo": "drkarimelshenawy/todo-shift-android",
+    "branch": "feat/exmore-official-identity-migration",
+    "path": "app/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
+    "commit": "0dc7d3feab427204743186b18899ccf13290a44e",
+    "blob": "7a8596adcb22b74ed81eaf84fcfc1ec717ac4606",
+    "mirrors": []
+  },
+  {
+    "id": "3al-tabloh",
+    "repo": "drkarimelshenawy/3al-Tabloh",
+    "branch": "feat/official-identity-migration-20261125",
+    "path": "assets/icon-512.png",
+    "commit": "e76dbd293d2258815ac15b48905d33226dcb5aec",
+    "blob": "7e9e08bed73f4ad91541d76a890edd9e38b68317",
+    "mirrors": [
+      "https://al-tabloh.web.app/assets/icon-512.png",
+      "https://al-tabloh--appcore-preview-6e7b7t0u.web.app/assets/icon-512.png"
+    ]
+  }
+]
