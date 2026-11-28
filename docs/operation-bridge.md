@@ -5,3 +5,8 @@ The existing operation-request push workflow is retained. No default-branch chan
 - APPCORE_AUTO_CYCLE=true is separately opt-in. Existing cron must include minute 0 UTC each hour. Cycle runs health and only the analytics/diagnostic imports separately enabled in GitHub variables. No automatic notification operation.
 - The dashboard shows a commit receipt, not an FCM delivery receipt. Review the existing job status and GitHub run. Do not retry an unconfirmed send blindly. Existing claim transactions guard against duplicate delivery attempts.
 - Existing public config guardian is preserved. The schedule on GitHub default branch is a separate issue; verify the currently deployed renewal path.
+
+## Optional read-only status connections
+- APPCORE_GITHUB_READ_TOKEN: separate fine-grained credential with Actions read for exactly AppCore, ExMore and AlTabloh. No write permission is required. The response contains up to 10 recent runs per fixed development branch.
+- APPCORE_SENTRY_TOKEN: read-only event:read credential. Set APPCORE_SENTRY_REGION to us or de, APPCORE_SENTRY_ORG to the verified organization slug, and APPCORE_SENTRY_PROJECT_ID to the verified numeric AlTabloh Web project ID. No raw titles, event payloads, user details or secrets are returned to the dashboard.
+- Both services explicitly report not-configured or unavailable when no valid result exists. No service is considered activated by code alone.

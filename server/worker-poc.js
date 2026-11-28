@@ -1,5 +1,6 @@
 import {readPublicConfig} from './public-config.js';
 import {ownerDispatch,scheduledOperations} from './operation-dispatch.js';
+import {ownerIntegrationStatus} from './integration-status.js';
 import {checkWebsite} from './website-monitor.js';
 import {delegatedProof} from './delegated-proof.js';
 import {createOwnerFirestore} from './owner-firestore.js';
@@ -26,6 +27,7 @@ export default {
  async fetch(request,env){
   const path=new URL(request.url).pathname;
   if(path==='/api/admin/operations')return ownerDispatch(request,env,readApp);
+  if(path==='/api/admin/integrations')return ownerIntegrationStatus(request,env,readApp);
   const config=/^\/api\/v1\/apps\/([a-z0-9-]+)\/([a-z]+)\/config$/.exec(path);
   if(config&&request.method==='GET')return readPublicConfig(config[1],config[2]);
   if(path==='/internal/delegated-proof'&&request.method==='POST'&&!request.headers.has('Origin'))return delegatedProof(request);

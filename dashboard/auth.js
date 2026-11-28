@@ -475,3 +475,11 @@ window.appcoreDispatchOperation=async(operation,notificationId='')=>{
  if(ticket!==generation||auth.currentUser!==user||v.status!=='requested'||!/^[0-9a-f]{40}$/.test(v.commit??''))throw Error('No request receipt');
  return v.commit;
 };
+
+window.appcoreExternalStatus=async()=>{
+ const user=auth.currentUser,ticket=generation;if(!ready||user?.uid!==owner)throw Error('Unauthorized');
+ const token=await user.getIdToken();if(ticket!==generation||auth.currentUser!==user)throw Error('Session changed');
+ const r=await fetch('https://appcore-poc.dr-karimelshenawy.workers.dev/api/admin/integrations',{headers:{Authorization:'Bearer '+token},credentials:'omit',redirect:'error',cache:'no-store'});
+ if(!r.ok)throw Error('Gateway HTTP '+r.status);
+ const result=await r.json();if(ticket!==generation||auth.currentUser!==user)throw Error('Session changed');return result;
+};

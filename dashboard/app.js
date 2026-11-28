@@ -25,6 +25,7 @@ if(["exmore","3al-tabloh"].includes(a.id)){
   if(selected(a).includes("crashes")||selected(a).includes("analytics"))main.append(diagnosticSnapshotPanel(a));
   if(selected(a).includes("notifications"))main.append(operationsNotificationPanel(a));
   main.append(operationsDiagnosticsPanel(a));
+  main.append(externalStatusPanel());
   main.append(healthHistoryPanel());
 }
 main.append(servicePanel(a,"audit"));}
@@ -395,3 +396,9 @@ function webPushPanel(){
  p.append(load,select,title,body,send,out,jobs,list);return p;
 }
 function diagnosticSnapshotPanel(a){const p=card('Crashlytics / Performance — BigQuery','لقطة مجمعة لآخر 7 أيام مكتملة (UTC). لا تتضمن أسماء مستخدمين أو محتوى شخصياً؛ ليست لحظية.');const b=el('button','تحميل آخر استيراد'),out=el('pre','لم يتم التحميل','console-output');b.onclick=async()=>{b.disabled=true;try{const v=await window.appcoreDiagnosticSnapshot(a.id);out.textContent=v?JSON.stringify(v,null,2):'لا يوجد استيراد مؤكد بعد'}catch{out.textContent='تعذر التحميل'}finally{b.disabled=false}};p.append(b,out);return p;}
+
+function externalStatusPanel(){
+ const p=card('GitHub / Sentry','قراءة مباشرة من الخدمات الخارجية بعد تفعيل صلاحيات القراءة؛ النتائج عينات محدودة وليست إجمالي الأعطال.'),b=el('button','تحميل حالة التكاملات'),out=el('pre','لم يتم التحميل','console-output');
+ b.onclick=async()=>{b.disabled=true;try{out.textContent=JSON.stringify(await window.appcoreExternalStatus(),null,2)}catch(e){out.textContent='تعذر التحميل: '+e.message}finally{b.disabled=false}};
+ p.append(b,out);return p;
+}
