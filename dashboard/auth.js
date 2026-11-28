@@ -50,7 +50,7 @@ async function connect(user, ticket) {
  snapshot=await getDocs(ref);
  if(ticket !== generation) return;
  ready = true;
- document.querySelector("#notice").textContent = "متصل بقاعدة البيانات — نشر التحديثات وإرسال الإشعارات غير مفعّلين بعد.";
+ document.querySelector("#notice").textContent = "متصل بقاعدة البيانات — حالة العمليات والإشعارات تُتحقق من أدواتها، ولا تعني حالة الاتصال نجاح الإرسال.";
  status.textContent = "تم التحقق من صلاحيات الإدارة والاتصال بقاعدة البيانات.";
  window.dispatchEvent(new CustomEvent("appcore-data",{detail:{connected:true,apps:snapshot.docs.map(d=>({...d.data(),...identityMetadata(d.id),id:d.id}))}}));
 }

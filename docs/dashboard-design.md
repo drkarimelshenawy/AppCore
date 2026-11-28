@@ -1,0 +1,2 @@
+# AppCore UI v8
+Arabic RTL navy / cyan control center based on the approved stacked-layer AppCore mark, recreated as a scalable SVG. Responsive desktop rail and mobile drawer, persistent theme, navigation search, separate application tabs, cards, real health and GA data, technical JSON disclosures. All previous operation handlers remain in app.js; no mock metrics, new external services, credential changes, or client app releases.

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="AppCore">
+<defs><linearGradient id="top" x1="0" y1="1" x2="1" y2="0"><stop stop-color="#3275ef"/><stop offset="1" stop-color="#41d9f4"/></linearGradient><linearGradient id="lower" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#55b5ff"/><stop offset="1" stop-color="#2864ec"/></linearGradient></defs>
+<path d="M9 65 Q5 62 9 59 L18 54 L44 70 Q48 73 52 70 L78 54 L87 59 Q91 62 87 66 L52 88 Q48 91 44 88Z" fill="url(#lower)"/>
+<path d="M9 47 Q5 44 9 41 L18 36 L44 52 Q48 55 52 52 L78 36 L87 41 Q91 44 87 48 L52 70 Q48 73 44 70Z" fill="url(#lower)"/>
+<path d="M9 27 L44 5 Q48 2 52 5 L87 27 Q92 31 87 35 L52 57 Q48 60 44 57 L9 35 Q4 31 9 27Z" fill="url(#top)"/>
+</svg>

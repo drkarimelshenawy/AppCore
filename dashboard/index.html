@@ -1,1 +1,21 @@
-<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AppCore</title><link rel="stylesheet" href="style.css"></head><body><header><strong>AppCore</strong><small>Your Apps. One Core.</small><button id="login" disabled>الدخول بحساب Google</button><button id="theme">☀ / ☾</button></header><aside id="notice">نسخة معاينة محلية — غير متصلة بالخادم، ولا ترسل إشعارات أو تنشر تحديثات.</aside><p id="auth-status" role="status"></p><nav id="nav"></nav><main id="main"></main><script src="app.js?v=7" defer></script><script type="module" src="auth.js?v=7"></script></body></html>
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#071426"><title>AppCore | مركز التحكم</title>
+<link rel="icon" type="image/svg+xml" href="./brand.svg"><link rel="stylesheet" href="./style.css?v=8">
+</head>
+<body>
+<a class="skip-link" href="#main">انتقل إلى المحتوى</a>
+<header class="topbar">
+ <button id="menu" class="icon-button" type="button" aria-label="القائمة" aria-controls="nav" aria-expanded="false">☰</button>
+ <a class="brand" href="#overview" aria-label="AppCore — الرئيسية"><img src="./brand.svg" alt="" width="38" height="38"><strong dir="ltr">App<span>Core</span></strong></a>
+ <div class="top-search"><label for="navigation-search" class="sr-only">البحث في أقسام AppCore</label><input id="navigation-search" type="search" placeholder="بحث في الأقسام..." autocomplete="off" aria-controls="search-results"><div id="search-results" class="search-results" hidden></div></div>
+ <div class="top-actions"><span id="connection" class="status-pill neutral">غير متحقق</span><button id="theme" class="icon-button" type="button" aria-label="تبديل المظهر" title="تبديل المظهر">◐</button><button id="login" type="button" disabled>الدخول بحساب Google</button></div>
+</header>
+<div class="shell">
+ <aside class="sidebar"><div class="sidebar-heading"><span class="eyebrow">WORKSPACE</span><strong>مركز القيادة</strong><small>Your Apps. One Core.</small></div><nav id="nav" aria-label="التنقل الرئيسي"></nav><div class="sidebar-footer"><span class="eyebrow">ENVIRONMENTS</span><p>الاختبار منفصل عن الإنتاج في أدوات النشر المدعومة.</p></div></aside>
+ <div class="workspace"><div class="connection-banner"><span class="eyebrow">SYSTEM STATUS</span><p id="notice">لم يتم التحقق من الاتصال بالخادم.</p><p id="auth-status" role="status"></p></div><main id="main" tabindex="-1"></main><footer class="workspace-footer"><span dir="ltr">AppCore / Control Center</span><span>بيانات فعلية · صلاحيات الإدارة</span></footer></div>
+</div>
+<script src="./app.js?v=8" defer></script><script type="module" src="./auth.js?v=8"></script>
+</body></html>
