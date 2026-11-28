@@ -1,0 +1,42 @@
+name: AppCore design — browser QA and admin deployment
+on:
+  push:
+    branches: [feat/appcore-command-center]
+    paths: ['.appcore/design-release.json']
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: appcore-design-release
+  cancel-in-progress: false
+jobs:
+  verify-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate explicit admin-only design release
+        run: |
+          node -e 'const r=require("./.appcore/design-release.json"); if(r.confirm!==true||r.scope!=="appcore-admin-only")process.exit(1)'
+          node --check dashboard/app.js
+          node --input-type=module --check < dashboard/auth.js
+      - name: Real Chromium responsive and interaction tests (isolated fixture)
+        run: |
+          npm install --no-save --no-package-lock playwright@1.51.1
+          npx playwright install --with-deps chromium
+          node tests/dashboard-browser.mjs
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: projects/316863421809/locations/global/workloadIdentityPools/appcore-github/providers/github
+          service_account: appcore-deploy@appcore-2026.iam.gserviceaccount.com
+      - name: Deploy tested AppCore admin dashboard only
+        run: npx --yes firebase-tools@14.27.0 deploy --only hosting --project appcore-2026 --non-interactive
+      - name: Verify live assets against checked commit
+        run: |
+          set -euo pipefail
+          node scripts/verify-activation.mjs live
+          curl -fsS --max-time 20 "https://appcore-2026.web.app/brand.svg?revision=${GITHUB_SHA}" -o /tmp/appcore-brand.svg
+          cmp dashboard/brand.svg /tmp/appcore-brand.svg
