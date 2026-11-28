@@ -13,3 +13,6 @@ The existing operation-request push workflow is retained. No default-branch chan
 
 ## Catalog pilot boundary
 The dashboard defaults to pilotCatalog, an independent public collection for synthetic fixtures only. Production publication requires an explicit selection and confirmation. Pilot inspection must never merge or overwrite local vehicle/service records. This is logical catalog isolation, not a separate Firebase project or full environment isolation. Shared authentication, diagnostics and public config still require environment planning before wider rollout.
+
+## Release pilot fixture
+The owner can create/delete a fixed synthetic PILOT-ONLY record under pilotReleases/{storageAppId}. It has no APK link and is never fetched by automatic production update checks. Only the explicitly paired test UI should request it. No production release revision is consumed by the fixture.

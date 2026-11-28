@@ -25,6 +25,7 @@ if(["exmore","3al-tabloh"].includes(a.id)){
   if(selected(a).includes("crashes")||selected(a).includes("analytics"))main.append(diagnosticSnapshotPanel(a));
   if(selected(a).includes("notifications"))main.append(operationsNotificationPanel(a));
   main.append(operationsDiagnosticsPanel(a));
+  main.append(pilotReleasePanel(a));
   main.append(externalStatusPanel());
   main.append(healthHistoryPanel());
 }
@@ -401,4 +402,11 @@ function externalStatusPanel(){
  const p=card('GitHub / Sentry','قراءة مباشرة من الخدمات الخارجية بعد تفعيل صلاحيات القراءة؛ النتائج عينات محدودة وليست إجمالي الأعطال.'),b=el('button','تحميل حالة التكاملات'),out=el('pre','لم يتم التحميل','console-output');
  b.onclick=async()=>{b.disabled=true;try{out.textContent=JSON.stringify(await window.appcoreExternalStatus(),null,2)}catch(e){out.textContent='تعذر التحميل: '+e.message}finally{b.disabled=false}};
  p.append(b,out);return p;
+}
+
+function pilotReleasePanel(a){
+ const p=card('اختبار التحديثات المعزول','سجل اصطناعي منفصل لا يصل إلى مسار تحديث الإنتاج، ولا يشير إلى ملف APK.'),out=el('p','');
+ out.setAttribute('role','status');
+ for(const active of [true,false]){const b=el('button',active?'إنشاء سجل اختبار':'إزالة سجل الاختبار');b.onclick=async()=>{if(!confirm('تأكيد العملية في نطاق الاختبار فقط؟'))return;b.disabled=true;try{await window.appcorePilotReleaseFixture(a.id,active,true);out.textContent=active?'تم إنشاء PILOT-ONLY':'تم إزالة سجل الاختبار'}catch(e){out.textContent=e.message}finally{b.disabled=false}};p.append(b)}
+ p.append(out);return p;
 }

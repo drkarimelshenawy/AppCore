@@ -484,3 +484,15 @@ window.appcoreExternalStatus=async()=>{
  if(!r.ok)throw Error('Gateway HTTP '+r.status);
  const result=await r.json();if(ticket!==generation||auth.currentUser!==user)throw Error('Session changed');return result;
 };
+
+window.appcorePilotReleaseFixture=async(id,active,confirmed)=>{
+ const user=auth.currentUser,ticket=generation;
+ if(!ready||user?.uid!==owner||confirmed!==true||!['exmore','3al-tabloh'].includes(id)||typeof active!=='boolean')throw Error('Unauthorized or invalid fixture');
+ return runTransaction(db,async tx=>{
+  const app=await tx.get(doc(db,'apps',id));
+  if(!app.exists()||ticket!==generation||auth.currentUser!==user)throw Error('Session changed or app unavailable');
+  const ref=doc(db,'pilotReleases',id);
+  if(active)tx.set(ref,{appId:id,version:'PILOT-ONLY',code:2100000000,url:'https://appcore-2026.web.app/',notes:'Synthetic fixture; not an APK or real release',mandatory:false,publishedAt:serverTimestamp()});
+  else tx.delete(ref);
+ });
+};

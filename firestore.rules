@@ -53,6 +53,21 @@ service cloud.firestore {
     && request.resource.data.publishedAt == request.time
     && (!exists(/databases/$(database)/documents/publishedReleases/$(id)) || request.resource.data.code > resource.data.code);
   }
+  // Synthetic update lookup fixtures; production clients never read this collection.
+  match /pilotReleases/{id} {
+   allow get: if id in ['exmore','3al-tabloh'];
+   allow list: if owner();
+   allow create, update: if owner() && id in ['exmore','3al-tabloh']
+    && request.resource.data.keys().hasOnly(['appId','version','code','url','notes','mandatory','publishedAt'])
+    && request.resource.data.appId == id
+    && request.resource.data.code == 2100000000
+    && request.resource.data.version == 'PILOT-ONLY'
+    && request.resource.data.url == 'https://appcore-2026.web.app/'
+    && request.resource.data.notes == 'Synthetic fixture; not an APK or real release'
+    && request.resource.data.mandatory == false
+    && request.resource.data.publishedAt == request.time;
+   allow delete: if owner() && id in ['exmore','3al-tabloh'];
+  }
   // Public configuration contains no private or device data. Publication stays gated.
   match /publicConfigs/{id} {
    allow get: if id in ['exmore_android','altabloh_android','altabloh_web'];
