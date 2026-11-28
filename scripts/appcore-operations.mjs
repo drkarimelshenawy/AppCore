@@ -7,6 +7,7 @@ const project='appcore-2026';
 const root=`projects/${project}/databases/(default)/documents`;
 const fsBase=`https://firestore.googleapis.com/v1/${root}`;
 export const apps=Object.freeze({exmore:'exmore',altabloh:'3al-tabloh'});
+const analyticsApps=Object.freeze({...apps,'altabloh-web':'3al-tabloh-web'});
 const idPattern=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const s=stringValue=>({stringValue}), n=x=>({integerValue:String(x)}), ts=timestampValue=>({timestampValue});
 const text=(f,k)=>f?.[k]?.stringValue;
@@ -63,9 +64,9 @@ export function createOperations({token,fetchImpl=globalThis.fetch,clock=()=>Dat
   return {status:'accepted_by_fcm',app};
  }
  async function analytics(app,property,stream){
-  if(!Object.hasOwn(apps,app)||!/^\d{1,20}$/.test(property??''))throw Error('Missing/invalid GA property');
+  if(!Object.hasOwn(analyticsApps,app)||!/^\d{1,20}$/.test(property??''))throw Error('Missing/invalid GA property');
   const rows=analyticsRows(await request(`https://analyticsdata.googleapis.com/v1beta/properties/${property}:runReport`,{method:'POST',body:reportBody(stream)}));
-  if(rows.length){await commit(rows.map(({day,activeUsers,sessions,eventCount})=>update(root+'/analyticsDaily/'+apps[app]+'/days/'+day,{activeUsers:n(activeUsers),sessions:n(sessions),eventCount:n(eventCount),source:s('GA4 stream report'),updatedAt:ts(new Date(clock()).toISOString())})));}
+  if(rows.length){await commit(rows.map(({day,activeUsers,sessions,eventCount})=>update(root+'/analyticsDaily/'+analyticsApps[app]+'/days/'+day,{activeUsers:n(activeUsers),sessions:n(sessions),eventCount:n(eventCount),source:s('GA4 stream report'),updatedAt:ts(new Date(clock()).toISOString())})));}
   return {app,rows:rows.length,status:rows.length?'imported':'no-data-returned'};
  }
  async function health(){
@@ -92,15 +93,18 @@ export function createOperations({token,fetchImpl=globalThis.fetch,clock=()=>Dat
  async function recordHealth(rows){const name=root+'/healthRuns/'+randomUUID();await commit([{update:{name,fields:healthFields(rows,clock())},currentDocument:{exists:false}}]);}
  return {send,analytics,health,recordHealth};
 }
+export function analyticsTargets(env){
+ const targets=[['exmore',env.GA_EXMORE_PROPERTY,env.GA_EXMORE_STREAM],['altabloh',env.GA_ALTABLOH_PROPERTY,env.GA_ALTABLOH_STREAM]];
+ if(env.GA_ALTABLOH_WEB_PROPERTY||env.GA_ALTABLOH_WEB_STREAM)targets.push(['altabloh-web',env.GA_ALTABLOH_WEB_PROPERTY,env.GA_ALTABLOH_WEB_STREAM]);
+ if(targets.some(([,p,s])=>!/^\d{1,20}$/.test(p??'')||!/^\d{1,20}$/.test(s??''))||new Set(targets.map(([,p,s])=>p+':'+s)).size!==targets.length)throw Error('Configure distinct verified GA property/stream pairs');
+ return targets;
+}
 async function main(){
  const mode=process.argv[2],api=createOperations({token:process.env.GOOGLE_ACCESS_TOKEN});
  if(process.env.OPERATIONS_CONFIRM!=='true')throw Error('Explicit confirmation required');
  if(mode==='notify'){console.log(JSON.stringify(await api.send(process.env.NOTIFICATION_ID??'')));return;}
  if(mode==='analytics'){
-  const {GA_EXMORE_PROPERTY,GA_EXMORE_STREAM,GA_ALTABLOH_PROPERTY,GA_ALTABLOH_STREAM}=process.env;
-  const targets=[['exmore',GA_EXMORE_PROPERTY,GA_EXMORE_STREAM],['altabloh',GA_ALTABLOH_PROPERTY,GA_ALTABLOH_STREAM]];
-  if(targets.some(([,p,s])=>!/^\d{1,20}$/.test(p??'')||!/^\d{1,20}$/.test(s??''))||(GA_EXMORE_PROPERTY===GA_ALTABLOH_PROPERTY&&GA_EXMORE_STREAM===GA_ALTABLOH_STREAM))throw Error('Configure two distinct verified GA property/stream pairs');
-  for(const args of targets)console.log(JSON.stringify(await api.analytics(...args)));return;
+  for(const args of analyticsTargets(process.env))console.log(JSON.stringify(await api.analytics(...args)));return;
  }
  if(mode==='health'){const rows=await api.health();await api.recordHealth(rows);console.log(JSON.stringify(rows));if(rows.some(x=>!x.ok))process.exitCode=1;return;}
  throw Error('Unknown operation');

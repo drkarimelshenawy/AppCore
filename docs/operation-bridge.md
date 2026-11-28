@@ -22,3 +22,6 @@ Explicit publication/revocation updates its own catalog index in the same Firest
 
 ## Pilot controls
 Separate pilot config drafts, published config and bulletins. Dashboard defaults to pilot, production requires explicit selection. Guardian renews production only. All fixtures are public and must never contain private data.
+
+## Web analytics
+Optional GA_ALTABLOH_WEB_PROPERTY and GA_ALTABLOH_WEB_STREAM must identify the actual verified Web analytics stream. It is never summed with or written over Android analytics. No Web tracking changes or production Web publication are performed by this code. Missing configuration does not block the existing Android imports.
