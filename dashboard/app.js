@@ -360,20 +360,23 @@ function omegaRenewPanel(a){
  const b=el('button','Renew '+platform);b.onclick=async()=>{if(!confirm('تجديد الإعدادات الحالية؟'))return;b.disabled=true;try{out.textContent='Revision '+await window.appcoreOmegaRenew(a.id,platform)}catch(e){out.textContent=e.message}finally{b.disabled=false}};p.append(b)}p.append(out);return p;
 }
 
+function approvedOperationButton(operation,id,out){
+ const b=el('button','اعتماد التشغيل من AppCore');b.type='button';b.onclick=async()=>{if(!confirm('اعتماد الطلب؟ النجاح يعني طلب التشغيل فقط، وليس التسليم.'))return;b.disabled=true;try{const sha=await window.appcoreDispatchOperation(operation,id);out.textContent='طُلب التشغيل: '+sha.slice(0,8)+' — راجع الحالة لاحقًا'}catch(e){out.textContent=e.message}finally{b.disabled=false}};return b;
+}
 function operationsNotificationPanel(a){
- const p=card('إشعارات FCM — اختبار حقيقي','إنشاء طلب لا يرسل شيئاً. الإرسال إلى موضوع الاختبار فقط بعد تشغيل dispatch.sh من حزمة Termux (أو اعتماد الطلب في GitHub Actions عند إتاحة التشغيل اليدوي). لا تستخدم بيانات خاصة.');
+ const p=card('إشعارات FCM — اختبار حقيقي','إنشاء طلب لا يرسل شيئاً. الإرسال إلى موضوع الاختبار فقط بعد اعتماد طلب التشغيل من AppCore؛ يتطلب تفعيل جسر العمليات. لا تستخدم بيانات خاصة.');
  const form=el('form'),title=el('input'),body=el('textarea'),button=el('button','إنشاء طلب اختبار'),out=el('p',''),list=el('div'),load=el('button','عرض الطلبات');
  title.required=body.required=true;title.maxLength=100;body.maxLength=1000;title.placeholder='العنوان';body.placeholder='الرسالة';out.setAttribute('role','status');
  const link=el('a','فتح GitHub Actions لاعتماد الطلب');link.href='https://github.com/drkarimelshenawy/AppCore/actions/workflows/appcore-operations.yml';link.target='_blank';link.rel='noopener noreferrer';
  form.append(title,body,button);p.append(form,out,link,load,list);
  form.onsubmit=async e=>{e.preventDefault();if(!confirm('إنشاء طلب لإشعارات الاختبار فقط؟'))return;button.disabled=true;try{const id=await window.appcoreOperationalQueue(a.id,'queue',{title:title.value,body:body.value,confirm:true});out.textContent='معرف الطلب: '+id+' — لم يُرسل بعد';form.reset()}catch{out.textContent='تعذر إنشاء الطلب'}finally{button.disabled=false}};
- load.onclick=async()=>{load.disabled=true;try{const rows=await window.appcoreOperationalQueue(a.id,'list');list.replaceChildren();for(const r of rows){const line=el('div');line.append(el('p',r.id+' — '+r.status+' — '+(r.createdAt?.toDate?.()?.toLocaleString()||'')));if(r.status==='queued'){const cancel=el('button','إلغاء الطلب');cancel.onclick=async()=>{if(!confirm('إلغاء الطلب؟'))return;cancel.disabled=true;try{await window.appcoreOperationalQueue(a.id,'cancel',{id:r.id,confirm:true});line.textContent='تم إلغاء الطلب'}catch{line.append(el('p','تعذر الإلغاء؛ قد يكون الإرسال بدأ'))}finally{cancel.disabled=false}};line.append(cancel)}list.append(line)}if(!rows.length)list.append(el('p','لا توجد طلبات'))}catch{list.textContent='تعذر تحميل الطلبات'}finally{load.disabled=false}};
+ load.onclick=async()=>{load.disabled=true;try{const rows=await window.appcoreOperationalQueue(a.id,'list');list.replaceChildren();for(const r of rows){const line=el('div');line.append(el('p',r.id+' — '+r.status+' — '+(r.createdAt?.toDate?.()?.toLocaleString()||'')));if(r.status==='queued'){const cancel=el('button','إلغاء الطلب');cancel.onclick=async()=>{if(!confirm('إلغاء الطلب؟'))return;cancel.disabled=true;try{await window.appcoreOperationalQueue(a.id,'cancel',{id:r.id,confirm:true});line.textContent='تم إلغاء الطلب'}catch{line.append(el('p','تعذر الإلغاء؛ قد يكون الإرسال بدأ'))}finally{cancel.disabled=false}};line.append(cancel,approvedOperationButton('notify',r.id,out))}list.append(line)}if(!rows.length)list.append(el('p','لا توجد طلبات'))}catch{list.textContent='تعذر تحميل الطلبات'}finally{load.disabled=false}};
  return p;
 }
 
 function operationsDiagnosticsPanel(a){
- const p=card('التشخيص والأداء','جمع اختياري على Android. استيراد GA4 إلى إحصائيات AppCore يحتاج إعداد Property وStream. تفاصيل الأعطال والأداء لا تُستورد إلى اللوحة في هذا الإصدار.');
- const link=el('a','فتح مشروع Firebase لعرض Crashlytics وPerformance');link.href='https://console.firebase.google.com/project/appcore-2026/overview';link.target='_blank';link.rel='noopener noreferrer';p.append(link);return p;
+ const p=card('التشخيص والأداء','جمع اختياري على Android. استيراد GA4 إلى إحصائيات AppCore يحتاج إعداد Property وStream. استيراد الأعطال والأداء يعتمد على جداول BigQuery المفعّلة والمتحقق منها.');
+ const link=el('a','فتح مشروع Firebase لعرض Crashlytics وPerformance');link.href='https://console.firebase.google.com/project/appcore-2026/overview';link.target='_blank';link.rel='noopener noreferrer';p.append(link);const out=el('p','');out.setAttribute('role','status');for(const [operation,label] of [['health','فحص الخدمات'],['analytics','مزامنة الإحصائيات'],['diagnostics','مزامنة التشخيص'],['cycle','دورة المراقبة']]){const b=approvedOperationButton(operation,'',out);b.textContent=label;p.append(b)}p.append(out);return p;
 }
 
 function registeredDevicePanel(a){
@@ -384,11 +387,11 @@ function registeredDevicePanel(a){
 }
 
 function webPushPanel(){
- const p=card('إشعارات Web — اختبار لجهاز واحد','اختر اشتراكاً؛ إنشاء الطلب لا يرسل الإشعار. نفّذ dispatch.sh webnotify ID --confirm. لا تضع بيانات خاصة.');
+ const p=card('إشعارات Web — اختبار لجهاز واحد','اختر اشتراكاً؛ إنشاء الطلب لا يرسل الإشعار. اعتمد التشغيل من AppCore بعد تفعيل جسر العمليات. لا تضع بيانات خاصة.');
  const select=el('select'),title=el('input'),body=el('textarea'),load=el('button','تحميل الاشتراكات'),send=el('button','إنشاء طلب'),jobs=el('button','عرض الطلبات'),out=el('p'),list=el('div');title.placeholder='العنوان';body.placeholder='الرسالة';title.maxLength=100;body.maxLength=1000;send.disabled=true;
  load.onclick=async()=>{load.disabled=true;send.disabled=true;try{select.replaceChildren();for(const r of await window.appcoreWebPush('list')){const o=el('option',r.id.slice(0,8)+'… — '+r.updatedAt?.toDate?.()?.toLocaleString());o.value=r.id;select.append(o)}send.disabled=!select.options.length;out.textContent=select.options.length+' اشتراك في العينة'}catch{out.textContent='تعذر التحميل'}finally{load.disabled=false}};
  send.onclick=async()=>{if(!confirm('إنشاء اختبار لاشتراك واحد؟'))return;send.disabled=true;try{out.textContent='معرف الطلب: '+await window.appcoreWebPush('queue',{uid:select.value,title:title.value,body:body.value,confirm:true})+' — لم يرسل بعد'}catch{out.textContent='تعذر إنشاء الطلب'}finally{send.disabled=!select.options.length}};
- jobs.onclick=async()=>{jobs.disabled=true;try{list.replaceChildren();for(const r of await window.appcoreWebPush('jobs')){const line=el('div');line.append(el('p',r.id+' — '+r.status));if(r.status==='queued'){const b=el('button','إلغاء');b.onclick=async()=>{if(!confirm('إلغاء الطلب؟'))return;b.disabled=true;try{await window.appcoreWebPush('cancel',{id:r.id,confirm:true});line.textContent='أُلغي الطلب'}catch{line.append(el('p','تعذر الإلغاء'))}};line.append(b)}list.append(line)}}catch{list.textContent='تعذر التحميل'}finally{jobs.disabled=false}};
+ jobs.onclick=async()=>{jobs.disabled=true;try{list.replaceChildren();for(const r of await window.appcoreWebPush('jobs')){const line=el('div');line.append(el('p',r.id+' — '+r.status));if(r.status==='queued'){const b=el('button','إلغاء');b.onclick=async()=>{if(!confirm('إلغاء الطلب؟'))return;b.disabled=true;try{await window.appcoreWebPush('cancel',{id:r.id,confirm:true});line.textContent='أُلغي الطلب'}catch{line.append(el('p','تعذر الإلغاء'))}};line.append(b,approvedOperationButton('webnotify',r.id,out))}list.append(line)}}catch{list.textContent='تعذر التحميل'}finally{jobs.disabled=false}};
  p.append(load,select,title,body,send,out,jobs,list);return p;
 }
 function diagnosticSnapshotPanel(a){const p=card('Crashlytics / Performance — BigQuery','لقطة مجمعة لآخر 7 أيام مكتملة (UTC). لا تتضمن أسماء مستخدمين أو محتوى شخصياً؛ ليست لحظية.');const b=el('button','تحميل آخر استيراد'),out=el('pre','لم يتم التحميل','console-output');b.onclick=async()=>{b.disabled=true;try{const v=await window.appcoreDiagnosticSnapshot(a.id);out.textContent=v?JSON.stringify(v,null,2):'لا يوجد استيراد مؤكد بعد'}catch{out.textContent='تعذر التحميل'}finally{b.disabled=false}};p.append(b,out);return p;}

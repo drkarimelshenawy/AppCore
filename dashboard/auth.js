@@ -464,3 +464,14 @@ window.appcoreWebPush=async(action,input={})=>{
  const id=crypto.randomUUID();await runTransaction(db,async tx=>{const app=await tx.get(doc(db,'apps','3al-tabloh')),sub=await tx.get(doc(db,'webPushSubscriptions',input.uid));if(ticket!==generation||auth.currentUser!==user||!app.exists()||!sub.exists()||!(app.data().modules??['notifications']).includes('notifications'))throw Error('Unavailable');tx.set(doc(db,'webPushJobs',id),{uid:input.uid,title:input.title.trim(),body:input.body.trim(),status:'queued',createdAt:serverTimestamp()})});return id;
 };
 window.appcoreDiagnosticSnapshot=async(id)=>{const user=auth.currentUser,ticket=generation,project=canonicalProjectId(id);if(!ready||user?.uid!==owner||!['exmore','altabloh'].includes(project))throw Error('Unauthorized');const snap=await getDocs(query(collection(db,'diagnosticSnapshots'),where(documentId(),'==',project),limit(1)));if(ticket!==generation||auth.currentUser!==user)throw Error('Session changed');return snap.empty?null:snap.docs[0].data()};
+
+window.appcoreDispatchOperation=async(operation,notificationId='')=>{
+ const user=auth.currentUser,ticket=generation;
+ if(!ready||user?.uid!==owner)throw Error('Unauthorized');
+ const token=await user.getIdToken();if(ticket!==generation||auth.currentUser!==user)throw Error('Session changed');
+ const r=await fetch('https://appcore-poc.dr-karimelshenawy.workers.dev/api/admin/operations',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({operation,notificationId,confirm:true}),credentials:'omit',redirect:'error',cache:'no-store'});
+ if(!r.ok)throw Error('Gateway HTTP '+r.status+' — لم يتم تأكيد الطلب');
+ const v=await r.json();
+ if(ticket!==generation||auth.currentUser!==user||v.status!=='requested'||!/^[0-9a-f]{40}$/.test(v.commit??''))throw Error('No request receipt');
+ return v.commit;
+};

@@ -1,4 +1,5 @@
 import {readPublicConfig} from './public-config.js';
+import {ownerDispatch,scheduledOperations} from './operation-dispatch.js';
 import {checkWebsite} from './website-monitor.js';
 import {delegatedProof} from './delegated-proof.js';
 import {createOwnerFirestore} from './owner-firestore.js';
@@ -24,6 +25,7 @@ async function run(){return Promise.all(endpoints.map(probe));}
 export default {
  async fetch(request,env){
   const path=new URL(request.url).pathname;
+  if(path==='/api/admin/operations')return ownerDispatch(request,env,readApp);
   const config=/^\/api\/v1\/apps\/([a-z0-9-]+)\/([a-z]+)\/config$/.exec(path);
   if(config&&request.method==='GET')return readPublicConfig(config[1],config[2]);
   if(path==='/internal/delegated-proof'&&request.method==='POST'&&!request.headers.has('Origin'))return delegatedProof(request);
@@ -45,7 +47,8 @@ export default {
   if(request.method!=='GET'||path!=='/health')return new Response('Not found',{status:404});
   return Response.json({service:'appcore-poc',status:'ok',secretBinding:env.POC_TEST_SECRET==='synthetic-test-only-not-a-credential'},{headers:{'Cache-Control':'no-store'}});
  },
- async scheduled(){
+ async scheduled(controller,env){
+  try{const result=await scheduledOperations(controller,env);if(result)console.log(JSON.stringify({event:'operations-cycle',...result}));}catch{console.log(JSON.stringify({event:'operations-cycle',status:'unconfirmed'}));}
   for(const [project,platform] of [['exmore','android'],['altabloh','android'],['altabloh','web']]){
    try{
     const response=await readPublicConfig(project,platform);
