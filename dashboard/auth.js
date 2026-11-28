@@ -399,11 +399,17 @@ window.appcoreCatalogPublish=async(kind,key,active,confirmed,scope='pilot')=>{
   const draft=await tx.get(doc(db,'managedDrafts','3al-tabloh',kind,key));
   if(!['pilot','production'].includes(scope))throw Error('Invalid publication scope');
   const ref=doc(db,scope==='pilot'?'pilotCatalog':'publicCatalog',kind,'items',key),old=await tx.get(ref);
+  const index=doc(db,'catalogIndexes',scope+'_'+kind),existingIndex=await tx.get(index);
   if(ticket!==generation||auth.currentUser!==user)throw Error('Session changed');
   if(active&&!draft.exists()||!active&&!old.exists())throw Error('Missing record');
   const d=active?draft.data():old.data();
   if(active&&kind==='database'){const v=JSON.parse(d.body);if(!['vehicle','maintenance'].includes(v.type)||typeof v.source!=='string'||!v.source.trim()||!['verified','estimated','unverified'].includes(v.verification))throw Error('Invalid catalog')}
+  const existing=existingIndex.exists()?existingIndex.data():{keys:[],revision:0};
+  if(!Array.isArray(existing.keys)||existing.keys.some(k=>typeof k!=='string'||!/^[a-z0-9][a-z0-9_-]{0,79}$/.test(k))||!Number.isSafeInteger(existing.revision))throw Error('Invalid catalog index');
+  const keys=[...new Set(existing.keys.filter(k=>k!==key).concat(active?[key]:[]))].sort();
+  if(keys.length>200)throw Error('Catalog index limit reached (200)');
   tx.set(ref,{title:active?d.title:'',body:active?d.body:'',active,revision:(old.exists()?old.data().revision:0)+1,updatedAt:serverTimestamp()});
+  tx.set(index,{keys,revision:existing.revision+1,updatedAt:serverTimestamp()});
  });
 };
 

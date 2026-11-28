@@ -16,3 +16,6 @@ The dashboard defaults to pilotCatalog, an independent public collection for syn
 
 ## Release pilot fixture
 The owner can create/delete a fixed synthetic PILOT-ONLY record under pilotReleases/{storageAppId}. It has no APK link and is never fetched by automatic production update checks. Only the explicitly paired test UI should request it. No production release revision is consumed by the fixture.
+
+## Discoverable catalog
+Explicit publication/revocation updates its own catalog index in the same Firestore transaction. Maximum 200 indexed records per scope/kind; clients load bounded pages, never overwrite the bundled research snapshot or personal records. Previously published records remain available by ID but are only discoverable after explicit republication. Indexes contain only public record IDs, not user data. Collection listing remains owner-only.

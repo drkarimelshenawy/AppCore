@@ -231,6 +231,19 @@ service cloud.firestore {
       && request.resource.data.updatedAt == request.time;
     allow delete: if false;
   }
+  // Explicitly published index; public listing of the underlying collections stays denied.
+  match /catalogIndexes/{id} {
+   function knownIndex() { return id in ['pilot_content','pilot_database','production_content','production_database']; }
+   allow get: if knownIndex();
+   allow list: if owner();
+   allow create, update: if owner() && knownIndex()
+    && request.resource.data.keys().hasOnly(['keys','revision','updatedAt'])
+    && request.resource.data.keys is list && request.resource.data.keys.size() <= 200
+    && request.resource.data.revision is int && request.resource.data.revision > 0
+    && (resource == null || request.resource.data.revision > resource.data.revision)
+    && request.resource.data.updatedAt == request.time;
+   allow delete: if false;
+  }
   // Owner-created test notification jobs; only Google IAM backend may update status.
   match /operationsNotifications/{id} {
    allow read: if owner();
