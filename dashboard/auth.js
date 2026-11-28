@@ -392,12 +392,13 @@ window.appcorePairPilot=async(id,action,input={})=>{
  throw Error('Invalid action');
 };
 
-window.appcoreCatalogPublish=async(kind,key,active,confirmed)=>{
+window.appcoreCatalogPublish=async(kind,key,active,confirmed,scope='pilot')=>{
  const user=auth.currentUser,ticket=generation;
  if(!ready||user?.uid!==owner||confirmed!==true||!['content','database'].includes(kind)||!/^[a-z0-9][a-z0-9_-]{0,79}$/.test(key)||typeof active!=='boolean')throw Error('Invalid publication');
  return runTransaction(db,async tx=>{
   const draft=await tx.get(doc(db,'managedDrafts','3al-tabloh',kind,key));
-  const ref=doc(db,'publicCatalog',kind,'items',key),old=await tx.get(ref);
+  if(!['pilot','production'].includes(scope))throw Error('Invalid publication scope');
+  const ref=doc(db,scope==='pilot'?'pilotCatalog':'publicCatalog',kind,'items',key),old=await tx.get(ref);
   if(ticket!==generation||auth.currentUser!==user)throw Error('Session changed');
   if(active&&!draft.exists()||!active&&!old.exists())throw Error('Missing record');
   const d=active?draft.data():old.data();

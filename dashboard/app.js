@@ -351,8 +351,8 @@ function pilotPairPanel(a){
 }
 
 function catalogPublishPanel(){
- const p=card('نشر المحتوى العام','انشر مسودة موجودة بمعرفها؛ المحتوى المنشور عام');const kind=el('select');for(const v of ['content','database']){const o=el('option',v);o.value=v;kind.append(o)}const key=el('input');key.placeholder='Draft ID';const out=el('p');
- for(const active of [true,false]){const b=el('button',active?'نشر':'إلغاء النشر');b.onclick=async()=>{if(!confirm('تأكيد العملية؟'))return;b.disabled=true;try{await window.appcoreCatalogPublish(kind.value,key.value,active,true);out.textContent='تم حفظ حالة النشر'}catch(e){out.textContent=e.message}finally{b.disabled=false}};p.append(b)}p.append(kind,key,out);return p;
+ const p=card('نشر المحتوى العام','الاختبار معزول عن كتالوج الإنتاج؛ المحتوى في النطاقين عام، لا تضع بيانات خاصة.');const scope=el('select');for(const [v,t] of [['pilot','اختبار — منفصل'],['production','إنتاج — للمستخدمين']]){const o=el('option',t);o.value=v;scope.append(o)}const kind=el('select');for(const v of ['content','database']){const o=el('option',v);o.value=v;kind.append(o)}const key=el('input');key.placeholder='Draft ID';const out=el('p');
+ for(const active of [true,false]){const b=el('button',active?'نشر':'إلغاء النشر');b.onclick=async()=>{if(!confirm(scope.value==='production'?'تأكيد تعديل محتوى الإنتاج للمستخدمين؟':'تأكيد العملية في نطاق الاختبار المنفصل؟'))return;b.disabled=true;try{await window.appcoreCatalogPublish(kind.value,key.value,active,true,scope.value);out.textContent='تم حفظ حالة النشر — '+scope.value}catch(e){out.textContent=e.message}finally{b.disabled=false}};p.append(b)}p.append(scope,kind,key,out);return p;
 }
 
 function omegaRenewPanel(a){

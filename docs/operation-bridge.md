@@ -10,3 +10,6 @@ The existing operation-request push workflow is retained. No default-branch chan
 - APPCORE_GITHUB_READ_TOKEN: separate fine-grained credential with Actions read for exactly AppCore, ExMore and AlTabloh. No write permission is required. The response contains up to 10 recent runs per fixed development branch.
 - APPCORE_SENTRY_TOKEN: read-only event:read credential. Set APPCORE_SENTRY_REGION to us or de, APPCORE_SENTRY_ORG to the verified organization slug, and APPCORE_SENTRY_PROJECT_ID to the verified numeric AlTabloh Web project ID. No raw titles, event payloads, user details or secrets are returned to the dashboard.
 - Both services explicitly report not-configured or unavailable when no valid result exists. No service is considered activated by code alone.
+
+## Catalog pilot boundary
+The dashboard defaults to pilotCatalog, an independent public collection for synthetic fixtures only. Production publication requires an explicit selection and confirmation. Pilot inspection must never merge or overwrite local vehicle/service records. This is logical catalog isolation, not a separate Firebase project or full environment isolation. Shared authentication, diagnostics and public config still require environment planning before wider rollout.
