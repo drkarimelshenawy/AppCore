@@ -105,3 +105,6 @@ test('audit modification denied',async()=>{
   createdAt:serverTimestamp()
  }));
 });
+
+test('pilot bulletin writes are isolated and owner-only',async()=>{const p=db=>doc(db,'pilotBulletins','exmore');await assertFails(setDoc(p(guest()),payload()));await assertSucceeds(setDoc(p(admin()),payload()));const prod=await assertSucceeds(getDoc(bulletin(guest())));if(prod.data().revision!==2||prod.data().active!==false)throw Error('Production bulletin altered');});
+test('pilot config is independent of production',async()=>{const p=db=>doc(db,'pilotConfigs','exmore_android'),v={schemaVersion:1,projectId:'exmore',platform:'android',revision:1,expiresAt:Date.now()+3600000,maintenance:true,flags:{disable_bulletins:true}};await assertFails(setDoc(p(guest()),v));await assertSucceeds(setDoc(p(admin()),v));const snap=await assertSucceeds(getDoc(p(guest())));if(snap.data().maintenance!==true)throw Error('Pilot missing');const prod=await assertSucceeds(getDoc(doc(guest(),'publicConfigs','exmore_android')));if(prod.exists())throw Error('Production config altered');});

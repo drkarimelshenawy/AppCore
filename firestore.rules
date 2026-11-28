@@ -27,6 +27,18 @@ service cloud.firestore {
     && request.resource.data.config is map
     && exists(/databases/$(database)/documents/apps/$(request.resource.data.appId));
   }
+  match /pilotConfigDrafts/{id} {
+   allow read: if owner();
+   allow create, update: if owner()
+    && request.resource.data.keys().hasOnly(['appId','platform','revision','config','updatedAt'])
+    && request.resource.data.appId is string
+    && request.resource.data.platform in ['android','web']
+    && id == request.resource.data.appId + '_' + request.resource.data.platform
+    && request.resource.data.revision is int
+    && request.resource.data.revision > 0
+    && request.resource.data.config is map
+    && exists(/databases/$(database)/documents/apps/$(request.resource.data.appId));
+  }
   match /analyticsDaily/{appId}/days/{day} { allow read: if owner(); }
   match /crashSummaries/{appId}/issues/{issue} { allow read: if owner(); }
   match /auditLogs/{id} { allow read: if owner(); }
@@ -83,6 +95,20 @@ service cloud.firestore {
    allow delete: if false;
   }
 
+  match /pilotConfigs/{id} {
+   allow get: if id in ['exmore_android','altabloh_android','altabloh_web'];
+   allow list: if owner();
+   allow create, update: if owner() && id in ['exmore_android','altabloh_android','altabloh_web']
+    && request.resource.data.keys().hasOnly(['schemaVersion','projectId','platform','revision','expiresAt','maintenance','flags'])
+    && request.resource.data.schemaVersion == 1
+    && id == request.resource.data.projectId + '_' + request.resource.data.platform
+    && request.resource.data.revision is int && request.resource.data.revision > 0
+    && request.resource.data.expiresAt is int && request.resource.data.expiresAt > request.time.toMillis() && request.resource.data.expiresAt <= request.time.toMillis() + 86400000
+    && request.resource.data.maintenance is bool && request.resource.data.flags is map && request.resource.data.flags.size() <= 50
+    && (!exists(/databases/$(database)/documents/pilotConfigs/$(id)) || request.resource.data.revision > resource.data.revision);
+   allow delete: if false;
+  }
+
   // APPCORE_DEVICE_REGISTRY_V1
   match /deviceRegistry/{appId}/devices/{deviceId} {
     allow read, delete: if owner()
@@ -134,7 +160,10 @@ service cloud.firestore {
         'release.publish',
         'config.publish',
         'bulletin.publish',
-        'bulletin.revoke'
+        'bulletin.revoke',
+        'pilot.config.publish',
+        'pilot.bulletin.publish',
+        'pilot.bulletin.revoke'
       ]
       && request.resource.data.createdAt == request.time;
 
@@ -142,6 +171,35 @@ service cloud.firestore {
   }
 
   match /publicBulletins/{appId} {
+    allow get: if appId in ['exmore','3al-tabloh'];
+    allow list: if owner();
+
+    allow create, update: if owner()
+      && appId in ['exmore','3al-tabloh']
+      && request.resource.data.keys().hasAll([
+        'appId','title','body','active','revision','updatedAt'
+      ])
+      && request.resource.data.keys().hasOnly([
+        'appId','title','body','active','revision','updatedAt'
+      ])
+      && request.resource.data.appId == appId
+      && request.resource.data.title is string
+      && request.resource.data.title.size() > 0
+      && request.resource.data.title.size() <= 100
+      && request.resource.data.body is string
+      && request.resource.data.body.size() > 0
+      && request.resource.data.body.size() <= 1000
+      && request.resource.data.active is bool
+      && request.resource.data.revision is int
+      && request.resource.data.revision > 0
+      && (resource == null ||
+          request.resource.data.revision > resource.data.revision)
+      && request.resource.data.updatedAt == request.time;
+
+    allow delete: if false;
+  }
+
+  match /pilotBulletins/{appId} {
     allow get: if appId in ['exmore','3al-tabloh'];
     allow list: if owner();
 

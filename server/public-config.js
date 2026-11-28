@@ -1,11 +1,12 @@
 import {targetFor,publicConfig} from '../dashboard/integration-v1.mjs';
-export async function readPublicConfig(project,platform,fetchImpl=(...args)=>globalThis.fetch(...args)){
+export async function readPublicConfig(project,platform,fetchImpl=(...args)=>globalThis.fetch(...args),scope='production'){
+ if(!['pilot','production'].includes(scope))return new Response(null,{status:404});
  let target;try{target=targetFor(project,platform);}catch{return new Response(null,{status:404});}
  const controller=new AbortController();
  const timer=setTimeout(()=>controller.abort(),5000);
  let stage='fetch';
  try{
-  const url='https://firestore.googleapis.com/v1/projects/appcore-2026/databases/(default)/documents/publicConfigs/'+target.projectId+'_'+platform;
+  const url='https://firestore.googleapis.com/v1/projects/appcore-2026/databases/(default)/documents/'+(scope==='pilot'?'pilotConfigs':'publicConfigs')+'/'+target.projectId+'_'+platform;
   const r=await fetchImpl(url,{redirect:'manual',signal:controller.signal});
   if(r.status===404)return new Response(null,{status:404});
   if(!r.ok){

@@ -74,7 +74,7 @@ function servicePanel(a,kind){
  return panel;
 }
 
-function configDraftPanel(a){const p=card("إعدادات التحكم عن بُعد","النشر اختياري ومؤقت ولا يعطل الوظائف المحلية.");const platform=el("select"),editor=el("textarea"),load=el("button","تحميل المسودة"),save=el("button","حفظ المسودة"),publish=el("button","نشر المسودة المحفوظة"),status=el("p","");for(const k of (a.id==="exmore"?["android"]:["android","web"])){const o=el("option",k);o.value=k;platform.append(o);}let revision=null,busy=false;function refresh(){load.disabled=busy;platform.disabled=busy;save.disabled=busy||revision===null;publish.disabled=busy||!revision||!["exmore","3al-tabloh"].includes(a.id);}function reset(){revision=null;editor.value="{}";refresh();}platform.onchange=reset;reset();async function act(fn){if(busy)return;busy=true;refresh();try{await fn();}catch(e){status.textContent=e.message;}finally{busy=false;refresh();}}load.onclick=()=>act(async()=>{const d=await window.appcoreConfigDraft(a.id,platform.value);revision=d.revision;editor.value=JSON.stringify(d.config,null,2);status.textContent="تم التحميل";});save.onclick=()=>act(async()=>{const d=await window.appcoreConfigDraft(a.id,platform.value,JSON.parse(editor.value),revision);revision=d.revision;editor.value=JSON.stringify(d.config,null,2);status.textContent="تم حفظ المسودة";});publish.onclick=()=>{if(!confirm("نشر المسودة المحفوظة لهذه المنصة؟ التعديلات غير المحفوظة لن تنشر."))return;return act(async()=>{const d=await window.appcorePublishConfig(a.id,platform.value,revision,true);status.textContent="تم حفظ الإعداد المنشور — الإصدار "+d.revision+"؛ وصوله للأجهزة غير متحقق بعد.";});};p.append(platform,load,editor,save,publish,status);return p;}
+function configDraftPanel(a){const p=card("إعدادات التحكم عن بُعد","النشر اختياري ومؤقت ولا يعطل الوظائف المحلية.");const scope=el("select");for(const [v,t] of [["pilot","اختبار — منفصل"],["production","إنتاج — للمستخدمين"]]){const o=el("option",t);o.value=v;scope.append(o)}const platform=el("select"),editor=el("textarea"),load=el("button","تحميل المسودة"),save=el("button","حفظ المسودة"),publish=el("button","نشر المسودة المحفوظة"),status=el("p","");for(const k of (a.id==="exmore"?["android"]:["android","web"])){const o=el("option",k);o.value=k;platform.append(o);}let revision=null,busy=false;function refresh(){load.disabled=busy;platform.disabled=scope.disabled=busy;save.disabled=busy||revision===null;publish.disabled=busy||!revision||!["exmore","3al-tabloh"].includes(a.id);}function reset(){revision=null;editor.value="{}";refresh();}platform.onchange=scope.onchange=reset;reset();async function act(fn){if(busy)return;busy=true;refresh();try{await fn();}catch(e){status.textContent=e.message;}finally{busy=false;refresh();}}load.onclick=()=>act(async()=>{const d=await window.appcoreConfigDraft(a.id,platform.value,undefined,undefined,scope.value);revision=d.revision;editor.value=JSON.stringify(d.config,null,2);status.textContent="تم التحميل";});save.onclick=()=>act(async()=>{const d=await window.appcoreConfigDraft(a.id,platform.value,JSON.parse(editor.value),revision,scope.value);revision=d.revision;editor.value=JSON.stringify(d.config,null,2);status.textContent="تم حفظ المسودة";});publish.onclick=()=>{if(!confirm(scope.value==="production"?"تأكيد تغيير إعدادات الإنتاج للمستخدمين؟":"نشر إعدادات الاختبار المعزولة؟"))return;return act(async()=>{const d=await window.appcorePublishConfig(a.id,platform.value,revision,true,scope.value);status.textContent="تم حفظ الإعداد المنشور — الإصدار "+d.revision+"؛ وصوله للأجهزة غير متحقق بعد.";});};p.append(scope,platform,load,editor,save,publish,status);return p;}
 
 
 // APPCORE_DEVICE_REGISTRY_V1
@@ -205,6 +205,7 @@ function bulletinPanel(a){
     "نشر إعلان قابل للقراءة من التطبيق"
   );
 
+  const scope=el("select");for(const [v,t] of [["pilot","اختبار — منفصل"],["production","إنتاج — للمستخدمين"]]){const o=el("option",t);o.value=v;scope.append(o)}
   const title=el("input");
   title.placeholder="عنوان الإعلان";
   title.maxLength=100;
@@ -221,7 +222,7 @@ function bulletinPanel(a){
   let revision=null,busy=false;
 
   async function refresh(){
-    const d=await window.appcoreBulletin(a.id,'read');
+    const d=await window.appcoreBulletin(a.id,'read',{scope:scope.value});
 
     revision=d?.revision||0;
     title.value=d?.title||"";
@@ -236,7 +237,7 @@ function bulletinPanel(a){
     if(busy)return;
 
     busy=true;
-    load.disabled=publish.disabled=revoke.disabled=true;
+    scope.disabled=load.disabled=publish.disabled=revoke.disabled=true;
 
     try{
       await fn();
@@ -245,37 +246,39 @@ function bulletinPanel(a){
       status.textContent=e.message;
     }finally{
       busy=false;
-      load.disabled=false;
+      scope.disabled=load.disabled=false;
       publish.disabled=revoke.disabled=revision===null;
     }
   }
 
   load.onclick=()=>act(async()=>{});
+  scope.onchange=()=>{revision=null;title.value=body.value='';publish.disabled=revoke.disabled=true;load.onclick()};
 
   publish.onclick=()=>{
-    if(!confirm("نشر الإعلان؟"))return;
+    if(!confirm(scope.value==="production"?"نشر إعلان للمستخدمين؟":"نشر إعلان اختبار معزول؟"))return;
 
     return act(()=>window.appcoreBulletin(
       a.id,'publish',{
         title:title.value,
         body:body.value,
         revision,
+        scope:scope.value,
         confirm:true
       }
     ));
   };
 
   revoke.onclick=()=>{
-    if(!confirm("إلغاء الإعلان المنشور؟"))return;
+    if(!confirm(scope.value==="production"?"إلغاء إعلان الإنتاج؟":"إلغاء إعلان الاختبار؟"))return;
 
     return act(()=>window.appcoreBulletin(
-      a.id,'revoke',{revision,confirm:true}
+      a.id,'revoke',{revision,scope:scope.value,confirm:true}
     ));
   };
 
   publish.disabled=revoke.disabled=true;
 
-  panel.append(title,body,load,publish,revoke,status);
+  panel.append(scope,title,body,load,publish,revoke,status);
 
   load.onclick();
 

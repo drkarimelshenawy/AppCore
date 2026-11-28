@@ -19,3 +19,6 @@ The owner can create/delete a fixed synthetic PILOT-ONLY record under pilotRelea
 
 ## Discoverable catalog
 Explicit publication/revocation updates its own catalog index in the same Firestore transaction. Maximum 200 indexed records per scope/kind; clients load bounded pages, never overwrite the bundled research snapshot or personal records. Previously published records remain available by ID but are only discoverable after explicit republication. Indexes contain only public record IDs, not user data. Collection listing remains owner-only.
+
+## Pilot controls
+Separate pilot config drafts, published config and bulletins. Dashboard defaults to pilot, production requires explicit selection. Guardian renews production only. All fixtures are public and must never contain private data.

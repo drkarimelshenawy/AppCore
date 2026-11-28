@@ -28,6 +28,8 @@ export default {
   const path=new URL(request.url).pathname;
   if(path==='/api/admin/operations')return ownerDispatch(request,env,readApp);
   if(path==='/api/admin/integrations')return ownerIntegrationStatus(request,env,readApp);
+  const pilotConfig=/^\/api\/v1\/pilot\/apps\/([a-z0-9-]+)\/([a-z]+)\/config$/.exec(path);
+  if(pilotConfig&&request.method==='GET')return readPublicConfig(pilotConfig[1],pilotConfig[2],undefined,'pilot');
   const config=/^\/api\/v1\/apps\/([a-z0-9-]+)\/([a-z]+)\/config$/.exec(path);
   if(config&&request.method==='GET')return readPublicConfig(config[1],config[2]);
   if(path==='/internal/delegated-proof'&&request.method==='POST'&&!request.headers.has('Origin'))return delegatedProof(request);

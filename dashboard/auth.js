@@ -105,9 +105,10 @@ window.appcoreCheckGateway=async(id)=>{
  return {ok:true,appId:id};
 };
 
-window.appcoreConfigDraft=async(id,platform,input,revision)=>{
+window.appcoreConfigDraft=async(id,platform,input,revision,scope='production')=>{
+ if(!['pilot','production'].includes(scope))throw Error('Invalid scope');
  if(!ready||auth.currentUser?.uid!==owner)throw Error('Unauthorized');
- const ticket=generation,ref=doc(db,'configDrafts',configId(id,platform));
+ const ticket=generation,ref=doc(db,scope==='pilot'?'pilotConfigDrafts':'configDrafts',configId(id,platform));
  if(input===undefined){return runTransaction(db,async tx=>{const d=await tx.get(ref);return d.exists()?d.data():{revision:0,config:normalizeConfig({})};});}
  const config=normalizeConfig(input);
  return runTransaction(db,async tx=>{const app=await tx.get(doc(db,'apps',id)),old=await tx.get(ref);if(ticket!==generation||!ready||auth.currentUser?.uid!==owner||!app.exists())throw Error('Session or app unavailable');const current=old.exists()?old.data().revision:0;if(current!==revision)throw Error('Revision conflict');tx.set(ref,{appId:id,platform,revision:current+1,config,updatedAt:serverTimestamp()});return {revision:current+1,config};});
@@ -146,14 +147,15 @@ return {published:true,code:d.code};});
 }
 
 // Explicit owner publication; local functionality is never gated by this record.
-window.appcorePublishConfig=async(id,platform,expectedRevision,confirm)=>{
+window.appcorePublishConfig=async(id,platform,expectedRevision,confirm,scope='production')=>{
+ if(!['pilot','production'].includes(scope))throw Error('Invalid scope');
  if(!ready||auth.currentUser?.uid!==owner||confirm!==true)throw Error('Unauthorized or unconfirmed');
  const {targetFor,publicConfig}=await import('./integration-v1.mjs');
  const target=targetFor(id,platform),ticket=generation;
  return runTransaction(db,async tx=>{
   const app=await tx.get(doc(db,'apps',id));
-  const draft=await tx.get(doc(db,'configDrafts',configId(id,platform)));
-  const ref=doc(db,'publicConfigs',target.projectId+'_'+platform),old=await tx.get(ref);
+  const draft=await tx.get(doc(db,scope==='pilot'?'pilotConfigDrafts':'configDrafts',configId(id,platform)));
+  const ref=doc(db,scope==='pilot'?'pilotConfigs':'publicConfigs',target.projectId+'_'+platform),old=await tx.get(ref);
   if(ticket!==generation||auth.currentUser?.uid!==owner||!app.exists()||!(app.data().modules??['remote']).includes('remote')||!draft.exists()||draft.data().revision!==expectedRevision)throw Error('Draft changed');
   const config=normalizeConfig(draft.data().config);
   const value=publicConfig({schemaVersion:1,...target,revision:(old.exists()?old.data().revision:0)+1,expiresAt:Date.now()+23*3600000,maintenance:config.maintenance,flags:config.flags},target);
@@ -161,7 +163,7 @@ window.appcorePublishConfig=async(id,platform,expectedRevision,confirm)=>{
 tx.set(ref,value);
 tx.set(doc(collection(db,'controlAudit')),{
   appId:id,
-  action:'config.publish',
+  action:scope==='pilot'?'pilot.config.publish':'config.publish',
   createdAt:serverTimestamp()
 });
 return value;
@@ -267,7 +269,8 @@ window.appcoreBulletin = async (id, action, input={}) => {
      !['exmore','3al-tabloh'].includes(id))
     throw Error('Unauthorized');
 
-  const ref=doc(db,'publicBulletins',id);
+  const scope=input.scope??'production';if(!['pilot','production'].includes(scope))throw Error('Invalid scope');
+  const ref=doc(db,scope==='pilot'?'pilotBulletins':'publicBulletins',id);
 
   return runTransaction(db,async tx=>{
     const old=await tx.get(ref);
@@ -326,7 +329,7 @@ window.appcoreBulletin = async (id, action, input={}) => {
 
     tx.set(doc(collection(db,'controlAudit')),{
       appId:id,
-      action:'bulletin.'+action,
+      action:(scope==='pilot'?'pilot.':'')+'bulletin.'+action,
       createdAt:serverTimestamp()
     });
 
