@@ -1,0 +1,6 @@
+{
+  "confirm": true,
+  "scope": "appcore-admin-only",
+  "workerVersion": 18,
+  "invocation": "20261128-activation-verification"
+}

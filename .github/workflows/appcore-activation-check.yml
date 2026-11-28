@@ -1,0 +1,53 @@
+name: AppCore activation verification and admin hosting
+on:
+  push:
+    branches: [feat/appcore-command-center]
+    paths: ['.appcore/activation-request.json']
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: appcore-activation-check
+  cancel-in-progress: false
+jobs:
+  verify:
+    if: github.repository == 'drkarimelshenawy/AppCore'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify explicit activation request
+        run: |
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          const r=JSON.parse(fs.readFileSync('.appcore/activation-request.json','utf8'));
+          if(r.confirm!==true||r.scope!=='appcore-admin-only'||r.workerVersion!==18)throw Error('Unapproved activation');
+          JS
+      - name: Verify live gateway and access boundaries
+        run: node scripts/verify-activation.mjs
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: projects/316863421809/locations/global/workloadIdentityPools/appcore-github/providers/github
+          service_account: appcore-deploy@appcore-2026.iam.gserviceaccount.com
+      - name: Verify exact preview files before promoting admin dashboard only
+        run: node scripts/verify-activation.mjs preview
+      - name: Promote verified AppCore admin preview
+        run: npx --yes firebase-tools@14.27.0 hosting:clone appcore-2026:gateway-poc appcore-2026:live --project appcore-2026 --non-interactive
+      - name: Verify live dashboard files
+        run: node scripts/verify-activation.mjs live
+      - uses: google-github-actions/auth@v3
+        id: worker
+        with:
+          workload_identity_provider: projects/316863421809/locations/global/workloadIdentityPools/appcore-github/providers/github
+          service_account: appcore-worker@appcore-2026.iam.gserviceaccount.com
+          create_credentials_file: false
+          export_environment_variables: false
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/cloud-platform,https://www.googleapis.com/auth/analytics.readonly
+      - name: Verify Google diagnostic metadata access (read only)
+        env:
+          GOOGLE_ACCESS_TOKEN: ${{ steps.worker.outputs.access_token }}
+        run: node scripts/verify-activation.mjs metadata
